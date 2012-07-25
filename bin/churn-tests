@@ -1,7 +1,24 @@
 #!/bin/bash
-git add -u . && git add .
-pushd ~/Projects/openshift/li
-build/devenv sync verifier --skip-build
-popd
-git add -u . && git add .
+projects_dir=$HOME/Projects/openshift
 
+function update_git {
+  dir=$1
+  echo "Fixing up staging area for ${dir}"
+  pushd "${projects_dir}/${dir}" 1>/dev/null
+  git add -u . && git add .
+  popd 1>/dev/null
+}
+
+function start_sync {
+  pushd "${projects_dir}/li" 1>/dev/null
+  build/devenv sync verifier --skip-build
+  popd 1>/dev/null
+}
+
+update_git li
+update_git crankcase
+
+start_sync
+
+update_git li
+update_git crankcase
