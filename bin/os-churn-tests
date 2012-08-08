@@ -1,5 +1,8 @@
 #!/bin/bash
 projects_dir=$HOME/Projects/openshift
+host=$1
+
+if [ -z "$host" ]; then host="verifier"; fi
 
 function update_git {
   dir=$1
@@ -10,8 +13,9 @@ function update_git {
 }
 
 function start_sync {
+  echo "Syncing to ${host}"
   pushd "${projects_dir}/li" 1>/dev/null
-  build/devenv sync verifier --skip-build
+  build/devenv sync $host --skip-build
   popd 1>/dev/null
 }
 
