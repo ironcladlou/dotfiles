@@ -35,7 +35,6 @@ export -f run_proxied
 alias rhc='run_proxied rhc'
 alias rhc-create-app='run_proxied rhc-create-app'
 
-
 ####### Prompt setup
 
 prompt_title="\033]0;\W\007\n\[\e[1;37m\]"
