@@ -18,6 +18,8 @@ if [ -d $HOME/.rvm ]; then
   [[ -s "$HOME/.rvm/scripts/rvm" ]] && . "$HOME/.rvm/scripts/rvm" 
 fi
 
+alias vi='vim'
+
 ####### OpenShift helpers
 
 function run_proxied {
