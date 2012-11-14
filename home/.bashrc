@@ -5,18 +5,13 @@ if [ -f /etc/bashrc ]; then
   . /etc/bashrc
 fi
 
+# preserve history
+shopt -s histappend
+
 ####### Path munging
 
 # Add local binaries to the path
 PATH=$PATH:$HOME/.local/bin:$HOME/bin
-
-# Deal with RVM if it's available
-if [ -d $HOME/.rvm ]; then
-  PATH=$PATH:$HOME/.rvm/bin 
-
-  # Load RVM
-  [[ -s "$HOME/.rvm/scripts/rvm" ]] && . "$HOME/.rvm/scripts/rvm" 
-fi
 
 alias vi='vim'
 
@@ -53,4 +48,4 @@ export GIT_PS1_SHOWDIRTYSTATE=true
 export GIT_PS1_SHOWUNTRACKEDFILES=true
  
 # Thy holy prompt.
-PROMPT_COMMAND='PS1="${prompt_title}${color_glyph}${prompt_glyph}${color_reset} ${color_user}\u${color_reset}:${color_pwd}\w${color_reset}${color_git}$(__git_ps1 " (%s)")${color_reset} \[\e[1;37m\]${color_reset}\n$ "'
+PROMPT_COMMAND='history -a;PS1="${prompt_title}${color_glyph}${prompt_glyph}${color_reset} ${color_user}\u${color_reset}:${color_pwd}\w${color_reset}${color_git}$(__git_ps1 " (%s)")${color_reset} \[\e[1;37m\]${color_reset}\n$ "'
