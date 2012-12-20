@@ -1,8 +1,19 @@
 #!/bin/bash
 
+# Platform detection
+case "$OSTYPE" in
+  solaris*) platform="solaris" ;;
+  darwin*)  platform="osx" ;;
+  linux*)   platform="linux" ;;
+  bsd*)     platform="bsd" ;;
+  *)        platform="unknown" ;;
+esac
+
 # Source global definitions
-if [ -f /etc/bashrc ]; then
-  . /etc/bashrc
+if [ ${platform} == "linux" ]; then
+  if [ -f /etc/bashrc ]; then
+    . /etc/bashrc
+  fi
 fi
 
 # preserve history
@@ -12,6 +23,15 @@ shopt -s histappend
 
 # Add local binaries to the path
 PATH=$PATH:$HOME/.local/bin:$HOME/bin
+
+if [ ${platform} == "osx" ]; then
+  PATH=/usr/local/bin:$PATH
+
+  # This must come after PATH is constructed
+  if [ -f $(brew --prefix)/etc/bash_completion ]; then
+    . $(brew --prefix)/etc/bash_completion
+  fi
+fi
 
 alias vi='vim'
 
@@ -29,8 +49,10 @@ function run_proxied {
 
 export -f run_proxied
 
-alias rhc='run_proxied rhc'
-alias rhc-create-app='run_proxied rhc-create-app'
+if [ $platform == "linux" ]; then
+  alias rhc='run_proxied rhc'
+  alias rhc-create-app='run_proxied rhc-create-app'
+fi
 
 ####### Prompt setup
 
