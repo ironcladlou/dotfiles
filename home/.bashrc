@@ -18,19 +18,18 @@ alias vi='vim'
 ####### OpenShift helpers
 
 function run_proxied {
-  export http_proxy='file.rdu.redhat.com:3128'
-  export https_proxy='file.rdu.redhat.com:3128'
+  export http_proxy='http://file.rdu.redhat.com:3128'
+  export https_proxy='https://file.rdu.redhat.com:3128'
 
   $@
 
   unset http_proxy
-  unset https_proxy 
+  unset https_proxy
 }
 
 export -f run_proxied
 
 alias rhc='run_proxied rhc'
-alias rhc-create-app='run_proxied rhc-create-app'
 
 ####### Prompt setup
 
