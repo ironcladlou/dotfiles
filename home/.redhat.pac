@@ -3,9 +3,12 @@ function regExpMatch(url, pattern) {
 }
 
 function FindProxyForURL(url, host) {
-	if (shExpMatch(url, '*://*.openshift.redhat.com/*') || shExpMatch(url, '*://openshift.redhat.com/*')) return 'PROXY squid.corp.redhat.com:8080';
-	if (shExpMatch(url, '*://*.compute-1.amazonaws.com*') || shExpMatch(url, '*://compute-1.amazonaws.com*')) return 'PROXY squid.corp.redhat.com:8080';
-	if (shExpMatch(url, '*://openshiftdev.redhat.com*') || shExpMatch(url, '*://*.dev.rhcloud.com*')) return 'PROXY squid.corp.redhat.com:8080';
+  alert('dan');
+  var proxy='PROXY file.rdu.redhat.com:3128x';
+  //var proxy='PROXY squid.corp.redhat.com:8080'
+	if (shExpMatch(url, '*://*.openshift.redhat.com/*') || shExpMatch(url, '*://openshift.redhat.com/*')) return proxy;
+	if (shExpMatch(url, '*://*.compute-1.amazonaws.com*') || shExpMatch(url, '*://compute-1.amazonaws.com*')) return proxy;
+	if (shExpMatch(url, '*://openshiftdev.redhat.com*') || shExpMatch(url, '*://*.dev.rhcloud.com*')) return proxy;
 	return 'DIRECT';
 }
 
