@@ -57,3 +57,8 @@ if [ -d "${platform_home_dir}" ]; then
   echo "Installing ${platform} platform dotfiles from ${platform_home_dir}"
   install_files ${platform_home_dir} $HOME
 fi
+
+echo "Setting up vim"
+if [ -d ~/.vim ]; then rm ~/.vim; fi
+ln -s ${common_home_dir}/.vim ~/.vim
+

@@ -66,6 +66,7 @@ color_pwd="\[\e[0;33m\]"
 color_git="\[\e[0;36m\]"
 color_glyph="\[\e[35;40m\]"
 
+. /usr/share/git-core/contrib/completion/git-prompt.sh >/dev/null
 export GIT_PS1_SHOWDIRTYSTATE=true
 export GIT_PS1_SHOWUNTRACKEDFILES=true
  
