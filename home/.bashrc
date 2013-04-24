@@ -34,6 +34,19 @@ if [ ${platform} == "osx" ]; then
 fi
 
 alias vi='vim'
+alias rebash='source ~/.bashrc'
+
+####### Fun
+
+function ghub {
+  local branch=`git rev-parse --abbrev-ref HEAD`
+  if [ ! -z "$branch" ]; then
+    local repo=`basename $(pwd)`
+    local url="https://github.com/ironcladlou/${repo}/tree/${branch}"
+    echo "Launching ${url}"
+    xdg-open $url >/dev/null
+  fi
+}
 
 ####### OpenShift helpers
 

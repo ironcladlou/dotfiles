@@ -41,3 +41,9 @@ if $TERM == "xterm-256color" || $TERM == "screen-256color" || $COLORTERM == "gno
   set t_Co=256
 endif
 
+" Powerline configuration
+" let g:Powerline_symbols = 'fancy'
+set nocompatible
+set laststatus=2
+set encoding=utf-8
+
