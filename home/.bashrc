@@ -22,7 +22,8 @@ shopt -s histappend
 ####### Path munging
 
 # Add local binaries to the path
-PATH=$PATH:$HOME/.local/bin:$HOME/bin
+PATH=$PATH:$HOME/.local/bin:$HOME/bin:$HOME/local/bin
+
 
 if [ ${platform} == "osx" ]; then
   PATH=/usr/local/bin:$PATH
@@ -35,6 +36,7 @@ fi
 
 alias vi='vim'
 alias rebash='source ~/.bashrc'
+alias rm='rm -i'
 
 ####### Fun
 
@@ -48,13 +50,30 @@ function ghub {
   fi
 }
 
+function gcomp {
+  local repo=`basename $(pwd)`
+  local branch=`git rev-parse --abbrev-ref HEAD`
+  local remote=`git rev-parse --abbrev-ref --symbolic-full-name @{u}`
+
+  if [ -z "$remote}" ]; then return; fi
+
+  local remote_array=(${remote//\// })
+  local remote_repo=${remote_array[0]}
+  local remote_branch=${remote_array[1]}
+
+  local url="https://github.com/ironcladlou/${repo}/compare/${remote_repo}:${remote_branch}...${branch}?expand=1"
+
+  echo "Launching ${url}"
+  xdg-open $url >/dev/null
+}
+
 ####### OpenShift helpers
 
 function run_proxied {
   export http_proxy='http://file.rdu.redhat.com:3128'
   export https_proxy='https://file.rdu.redhat.com:3128'
 
-  $@
+  "$@"
 
   unset http_proxy
   unset https_proxy
@@ -64,7 +83,7 @@ export -f run_proxied
 
 if [ $platform == "linux" ]; then
   alias rhc='run_proxied rhc'
-  alias rhc-create-app='run_proxied rhc-create-app'
+  alias rhc-int='run_proxied rhc --config=~/.openshift/express-int.conf'
 fi
 
 ####### Prompt setup

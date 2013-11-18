@@ -6,6 +6,11 @@ syntax on
 filetype plugin indent on
 set number
 
+set smartindent
+set tabstop=2
+set shiftwidth=2
+set expandtab
+
 " change the mapleader from \ to ,
 let mapleader=","
 
