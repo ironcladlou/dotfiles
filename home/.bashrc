@@ -21,8 +21,10 @@ shopt -s histappend
 
 ####### Path munging
 
+export GOPATH=$HOME/Projects/go
+
 # Add local binaries to the path
-PATH=$PATH:$HOME/.local/bin:$HOME/bin:$HOME/local/bin
+PATH=$PATH:$HOME/.local/bin:$HOME/bin:$HOME/local/bin:$GOPATH/bin
 
 
 if [ ${platform} == "osx" ]; then
