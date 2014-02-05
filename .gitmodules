@@ -1,9 +1,0 @@
-[submodule "home/.vim/bundle/ctrlp"]
-	path = home/.vim/bundle/ctrlp
-	url = git://github.com/kien/ctrlp.vim.git
-[submodule "home/.vim/bundle/nerdtree"]
-	path = home/.vim/bundle/nerdtree
-	url = git://github.com/scrooloose/nerdtree.git
-[submodule "home/.vim/bundle/powerline"]
-	path = home/.vim/bundle/powerline
-	url = git@github.com:Lokaltog/vim-powerline.git
