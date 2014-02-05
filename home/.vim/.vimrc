@@ -1,6 +1,15 @@
-execute pathogen#infect()
+set nocompatible
+filetype on
+filetype off
 
-call pathogen#helptags()
+set rtp+=~/.vim/bundle/vundle/
+call vundle#rc()
+
+" My bundles
+Bundle 'Lokaltog/vim-powerline'
+Bundle 'kien/ctrlp.vim'
+Bundle 'scrooloose/nerdtree'
+Bundle 'christoomey/vim-tmux-navigator'
 
 syntax on
 filetype plugin indent on

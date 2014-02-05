@@ -27,7 +27,7 @@ function install_files {
 
     if [ -f "${target}" ]; then
       echo "  Reinstalling ${f} => ${target}"
-      rm $target
+      rm -rf $target
     else
       echo "  Installing ${f} => ${target}"  
     fi

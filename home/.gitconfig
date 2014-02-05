@@ -6,3 +6,5 @@
 
 [push]
 	default = matching
+[core]
+	excludesfile = /Users/dan/.gitignore_global
