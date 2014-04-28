@@ -2,14 +2,18 @@ set nocompatible
 filetype on
 filetype off
 
-set rtp+=~/.vim/bundle/vundle/
-call vundle#rc()
+set rtp+=~/.vim/bundle/Vundle.vim
+call vundle#begin()
 
 " My bundles
-Bundle 'Lokaltog/vim-powerline'
-Bundle 'kien/ctrlp.vim'
-Bundle 'scrooloose/nerdtree'
-Bundle 'christoomey/vim-tmux-navigator'
+Plugin 'gmarik/Vundle.vim'
+Plugin 'Lokaltog/vim-powerline'
+Plugin 'kien/ctrlp.vim'
+Plugin 'scrooloose/nerdtree'
+Plugin 'christoomey/vim-tmux-navigator'
+Plugin 'chriskempson/base16'
+
+call vundle#end()
 
 syntax on
 filetype plugin indent on
@@ -38,6 +42,9 @@ set smartcase
 set hlsearch
 nmap \q :nohlsearch<CR>
 
+
+colorscheme base16-default
+
 " Ctrl-P configuration
 nmap ; :CtrlPBuffer<CR>
 " let g:ctrlp_map = '<Leader>t'
@@ -60,4 +67,5 @@ endif
 set nocompatible
 set laststatus=2
 set encoding=utf-8
+
 

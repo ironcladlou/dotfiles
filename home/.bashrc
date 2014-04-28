@@ -29,6 +29,7 @@ PATH=$PATH:$HOME/.local/bin:$HOME/bin:$HOME/local/bin:$GOPATH/bin
 
 if [ ${platform} == "osx" ]; then
   PATH=/usr/local/bin:$PATH
+  eval "$(rbenv init -)"
 
   # This must come after PATH is constructed
   if [ -f $(brew --prefix)/etc/bash_completion ]; then
@@ -39,6 +40,7 @@ fi
 alias vi='vim'
 alias rebash='source ~/.bashrc'
 alias rm='rm -i'
+alias ls="ls -G"
 
 ####### Fun
 
@@ -69,6 +71,16 @@ function gcomp {
   xdg-open $url >/dev/null
 }
 
+function diskinventory {
+   du -h -d 1 . 2>/dev/null | gsort -hr | head
+}
+
+function ddockeri {
+  MNTROOT=/usr/local/src/projects
+
+  docker run -i -t -v $MNTROOT/$(basename $PWD):/usr/local/src/$(basename $PWD) ironcladlou/$(basename $PWD) "$@"
+}
+
 ####### OpenShift helpers
 
 function run_proxied {
@@ -82,11 +94,8 @@ function run_proxied {
 }
 
 export -f run_proxied
-
-if [ $platform == "linux" ]; then
-  alias rhc='run_proxied rhc'
-  alias rhc-int='run_proxied rhc --config=~/.openshift/express-int.conf'
-fi
+alias rhc='run_proxied rhc'
+alias rhc-int='run_proxied rhc --config=~/.openshift/express-int.conf'
 
 ####### Prompt setup
 
