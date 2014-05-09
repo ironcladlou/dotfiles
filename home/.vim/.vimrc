@@ -97,7 +97,7 @@ nnoremap ; :
 inoremap jj <ESC>
 
 " Ctrl-P configuration
-"nmap ; :CtrlPBuffer<CR>
+nmap ' :CtrlPBuffer<CR>
 " let g:ctrlp_map = '<Leader>t'
 let g:ctrlp_match_window_bottom = 0
 let g:ctrlp_match_window_reversed = 0

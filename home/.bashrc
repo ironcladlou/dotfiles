@@ -56,6 +56,11 @@ export GIT_PS1_SHOWUNTRACKEDFILES=true
 # Thy holy prompt.
 PROMPT_COMMAND='history -a;PS1="${prompt_title}${color_glyph}${prompt_glyph}${color_reset} ${color_user}\u${color_reset}:${color_pwd}\w${color_reset}${color_git}$(__git_ps1 " (%s)")${color_reset} \[\e[1;37m\]${color_reset}\n$ "'
 
+# Fancy colors
+base16shell=$HOME/dotfiles/thirdparty/base16-shell
+if [ ${platform} == "linux" ] && [ -d $base16shell ]; then
+  source ${base16shell}/base16-default.dark.sh
+fi
 
 # Random functions
 function ghub {
