@@ -12,7 +12,8 @@ function FindProxyForURL(url, host) {
     '*://compute-1.amazonaws.com*',
     '*://openshiftdev.redhat.com*',
     '*://*.dev.rhcloud.com*',
-    '*://*.usersys.redhat.com*'
+    '*://*.usersys.redhat.com*',
+    '*://*.ops.rhcloud.com*'
   ];
 
   destination = 'DIRECT';

@@ -16,6 +16,7 @@ case "$OSTYPE" in
 esac
 
 echo "Target platform: ${platform}"
+echo ""
 
 # Links binaries to $HOME/bin
 function install_files {
@@ -24,16 +25,11 @@ function install_files {
 
   for f in $(find "${source_dir}" -maxdepth 1 -type f); do
     target="${target_dir}/$(basename ${f})"
-
-    if [ -f "${target}" ]; then
-      echo "  Reinstalling ${f} => ${target}"
-      rm -rf $target
-    else
-      echo "  Installing ${f} => ${target}"  
-    fi
-    
-    ln -s $f $target
+    echo "---> ${f} -> ${target}"  
+    ln -sf $f $target
   done
+
+  echo ""
 }
 
 # todo: refactor this into a generic thing that acts
@@ -58,7 +54,9 @@ if [ -d "${platform_home_dir}" ]; then
   install_files ${platform_home_dir} $HOME
 fi
 
-echo "Setting up vim"
-if [ -d ~/.vim ]; then rm ~/.vim; fi
-ln -s ${common_home_dir}/.vim ~/.vim
+if [ ! -L ~/.vim ]; then
+  echo "Settings up vim"
+  rm -rf ~/.vim 
+  ln -sf ${common_home_dir}/.vim ~/.vim
+fi
 
