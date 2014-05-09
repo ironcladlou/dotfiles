@@ -7,4 +7,4 @@
 [push]
 	default = matching
 [core]
-	excludesfile = /Users/dan/.gitignore_global
+	excludesfile = ~/.gitignore_global
