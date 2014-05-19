@@ -15,6 +15,7 @@ Plugin 'majutsushi/tagbar'
 Plugin 'xolox/vim-misc'
 Plugin 'xolox/vim-easytags'
 Plugin 'chriskempson/base16-vim'
+Plugin 'scrooloose/syntastic'
 
 call vundle#end()
 
@@ -29,6 +30,10 @@ set expandtab
 
 if has('gui_running')
   set guifont=Inconsolata\ Medium\ 11
+  set guioptions-=m  "remove menu bar
+  set guioptions-=T  "remove toolbar
+  set guioptions-=r  "remove right-hand scroll bar
+  set guioptions-=L  "remove left-hand scroll bar
 endif
 
 " other prefs
@@ -43,7 +48,6 @@ set wildmode=list:longest
 set visualbell
 set cursorline
 set ttyfast
-set ruler
 set backspace=indent,eol,start
 set laststatus=2
 set noswapfile
@@ -66,12 +70,8 @@ nmap k gk
 set wrap
 set textwidth=79
 set formatoptions=qrn1
-set colorcolumn=85
 
 " Search setup
-nnoremap / /\v
-vnoremap / /\v
-set ignorecase
 set smartcase
 set gdefault
 set incsearch
@@ -105,6 +105,7 @@ let g:ctrlp_custom_ignore = '\v\~$|\.(o|swp|pyc|wav|mp3|ogg|blend)$|(^|[/\\])\.(
 let g:ctrlp_working_path_mode = 0
 let g:ctrlp_dotfiles = 0
 let g:ctrlp_switch_buffer = 0
+let g:ctrlp_follow_symlinks = 1
 
 " Nerdtree configuration
 nmap t :NERDTreeToggle<CR>
@@ -121,6 +122,9 @@ colorscheme base16-default
 
 " Go bindings
 au FileType go nmap gd <Plug>(go-def)
+au FileType go nmap gb <Plug>(go-build)
+au FileType go nmap <Leader>gd <Plug>(go-doc)
+let g:go_auto_type_info = 1
 
 " Tagbar configuration
 nmap <leader>c :TagbarToggle<CR>
@@ -160,6 +164,8 @@ nnoremap <C-J> <C-W><C-J>
 nnoremap <C-K> <C-W><C-K>
 nnoremap <C-L> <C-W><C-L>
 nnoremap <C-H> <C-W><C-H>
+
+nmap <C-w> :bd<CR>
 
 set splitbelow
 set splitright

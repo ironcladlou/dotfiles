@@ -3,6 +3,9 @@
 # Preserve history
 shopt -s histappend
 
+# Prevent Ctrl-D from nuking shells
+set -o ignoreeof
+
 # Use vi mode... may the gods be with me
 set -o vi
 
