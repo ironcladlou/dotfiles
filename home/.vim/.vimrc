@@ -22,7 +22,15 @@ call vundle#end()
 syntax on
 filetype plugin indent on
 
-set number
+if $TERM == "xterm-256color" || $TERM == "screen-256color" || $COLORTERM == "gnome-terminal"
+  set t_Co=256
+endif
+
+" Color scheme
+set background=dark
+let base16colorspace=256
+colorscheme base16-ocean
+
 set smartindent
 set tabstop=2
 set shiftwidth=2
@@ -34,7 +42,18 @@ if has('gui_running')
   set guioptions-=T  "remove toolbar
   set guioptions-=r  "remove right-hand scroll bar
   set guioptions-=L  "remove left-hand scroll bar
+  autocmd GUIEnter * set vb t_vb= " disable blinking
+  set lines=63
+  set columns=143
+  
+  vmap <C-c> "+yi
+  vmap <C-v> c<ESC>"+p
+  imap <C-v> <C-r><C-o>+
 endif
+
+" turn this stuff off since it's so damned slow
+let loaded_matchparen = 1
+set nocursorline
 
 " other prefs
 set encoding=utf-8
@@ -46,14 +65,14 @@ set hidden
 set wildmenu
 set wildmode=list:longest
 set visualbell
-set cursorline
+"set cursorline
 set ttyfast
 set backspace=indent,eol,start
 set laststatus=2
 set noswapfile
 
-" change the mapleader from \ to ,
-let mapleader=","
+" space leader
+let mapleader=" "
 
 " Prevent omnicomplete from selecting the first thing it finds
 set completeopt+=longest
@@ -80,6 +99,20 @@ set hlsearch
 nnoremap <leader><space> :noh<cr>
 nnoremap <tab> %
 vnoremap <tab> %
+
+if executable('ag')
+  set grepprg=ag\ --nogroup\ --nocolor
+  let g:ctrlp_user_command = 'ag %s -l --nocolor -g ""'
+  let g:ctrlp_use_caching = 0
+endif
+
+" bind K to grep word under cursor
+nnoremap K :grep! "\b<C-R><C-W>\b"<CR>:cwindow<CR>
+
+" bind \ to grep shortcut
+command! -nargs=+ -complete=file -bar Ag silent! grep! <args>|cwindow|redraw!
+nnoremap \ :Ag<SPACE>
+
 
 " Training wheels
 nnoremap <up> <nop>
@@ -110,15 +143,7 @@ let g:ctrlp_follow_symlinks = 1
 " Nerdtree configuration
 nmap t :NERDTreeToggle<CR>
 let g:NERDTreeWinSize=26
-
-if $TERM == "xterm-256color" || $TERM == "screen-256color" || $COLORTERM == "gnome-terminal"
-  set t_Co=256
-endif
-
-" Color scheme
-set background=dark
-let base16colorspace=256
-colorscheme base16-default
+let g:NERDTreeMouseMode=2
 
 " Go bindings
 au FileType go nmap gd <Plug>(go-def)
@@ -164,8 +189,6 @@ nnoremap <C-J> <C-W><C-J>
 nnoremap <C-K> <C-W><C-K>
 nnoremap <C-L> <C-W><C-L>
 nnoremap <C-H> <C-W><C-H>
-
-nmap <C-w> :bd<CR>
 
 set splitbelow
 set splitright

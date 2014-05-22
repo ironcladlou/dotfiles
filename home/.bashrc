@@ -62,7 +62,7 @@ PROMPT_COMMAND='history -a;PS1="${prompt_title}${color_glyph}${prompt_glyph}${co
 # Fancy colors
 base16shell=$HOME/dotfiles/thirdparty/base16-shell
 if [ ${platform} == "linux" ] && [ -d $base16shell ]; then
-  source ${base16shell}/base16-default.dark.sh
+  source ${base16shell}/base16-ocean.dark.sh
 fi
 
 # Random functions
