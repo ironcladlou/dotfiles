@@ -16,6 +16,7 @@ Plugin 'xolox/vim-misc'
 Plugin 'xolox/vim-easytags'
 Plugin 'chriskempson/base16-vim'
 Plugin 'scrooloose/syntastic'
+Plugin 'Valloric/YouCompleteMe'
 
 call vundle#end()
 
@@ -183,6 +184,12 @@ let g:tagbar_type_go = {
     \ }
  
 call xolox#easytags#map_filetypes('go', 'go')
+
+" YouCompleteMe config
+let g:ycm_auto_trigger = 0
+let g:ycm_autoclose_preview_window_after_completion = 1
+let g:ycm_autoclose_preview_window_after_insertion = 1
+set completeopt-=preview
 
 " Easy split navigation
 nnoremap <C-J> <C-W><C-J>
