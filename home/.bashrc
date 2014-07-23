@@ -36,6 +36,7 @@ alias vi='vim'
 alias rebash='source ~/.bashrc'
 alias rm='rm -i'
 [ $platform == "linux" ] && alias rhc='run_proxied rhc'
+[ $platform == "osx" ] && alias ls='ls -G'
 
 # Fancy colors
 [ $platform == "osx" ] && unset LS_COLORS

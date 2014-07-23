@@ -60,3 +60,9 @@ if [ ! -L ~/.vim ]; then
   ln -sf ${common_home_dir}/.vim ~/.vim
 fi
 
+if [ ! -L ~/vagrant ]; then
+  echo "Setting up vagrantfiles"
+  ln -s ${common_home_dir}/vagrant ~/vagrant
+fi
+
+
