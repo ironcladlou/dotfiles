@@ -9,3 +9,6 @@
 [core]
 	excludesfile = ~/.gitignore_global
 	editor = /usr/bin/vim
+[bash]
+	showDirtyState = true
+	showUntrackedFiles = false

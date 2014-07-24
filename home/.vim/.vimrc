@@ -38,47 +38,6 @@ set shiftwidth=2
 set expandtab
 
 if has('gui_running')
-  set guifont=Inconsolata\ Medium\ 11
-  set guioptions-=m  "remove menu bar
-  set guioptions-=T  "remove toolbar
-  set guioptions-=r  "remove right-hand scroll bar
-  set guioptions-=L  "remove left-hand scroll bar
-  autocmd GUIEnter * set vb t_vb= " disable blinking
-  set lines=63
-  set columns=143
-  
-  vmap <C-c> "+yi
-  vmap <C-v> c<ESC>"+p
-  imap <C-v> <C-r><C-o>+
-endif
-
-" turn this stuff off since it's so damned slow
-let loaded_matchparen = 1
-set nocursorline
-
-" other prefs
-set encoding=utf-8
-set scrolloff=3
-set autoindent
-set showmode
-set showcmd
-set hidden
-set wildmenu
-set wildmode=list:longest
-set visualbell
-"set cursorline
-set ttyfast
-set backspace=indent,eol,start
-set laststatus=2
-set noswapfile
-
-" space leader
-let mapleader=" "
-
-" Prevent omnicomplete from selecting the first thing it finds
-set completeopt+=longest
-
-if has('gui_running')
   set guifont=Monaco\ 11
   set guioptions-=m  "remove menu bar
   set guioptions-=T  "remove toolbar

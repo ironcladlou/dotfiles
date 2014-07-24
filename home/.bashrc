@@ -13,6 +13,8 @@ case "$OSTYPE" in
   *)        platform="unknown" ;;
 esac
 
+[ $(whoami) == "vagrant" ] && platform="vm"
+
 # Source global definitions
 [ ${platform} == "linux" ] && [ -f /etc/bashrc ] && . /etc/bashrc
 
@@ -43,7 +45,7 @@ alias rm='rm -i'
 
 base16shell=$HOME/dotfiles/thirdparty/base16-shell
 if [ -d $base16shell ]; then
-  source ${base16shell}/base16-default.dark.sh
+  source ${base16shell}/base16-ocean.dark.sh
 fi
 
 # Random functions
@@ -98,7 +100,9 @@ export -f run_proxied
 ####### Prompt setup
 
 # Git support
-[ $platform == "linux" ] && . /usr/share/git-core/contrib/completion/git-prompt.sh >/dev/null
+[ -f /usr/share/git-core/contrib/completion/git-prompt.sh ] && . /usr/share/git-core/contrib/completion/git-prompt.sh >/dev/null
+[ -f /etc/bash_completion.d/git ] && . /etc/bash_completion.d/git >/dev/null
+
 export GIT_PS1_SHOWDIRTYSTATE=true
 export GIT_PS1_SHOWUNTRACKEDFILES=true
 

@@ -58,6 +58,7 @@ if [ ! -L ~/.vim ]; then
   echo "Settings up vim"
   rm -rf ~/.vim 
   ln -sf ${common_home_dir}/.vim ~/.vim
+  ln -sf ${common_home_dir}/.vim/.vimrc ~/.vimrc
 fi
 
 if [ ! -L ~/vagrant ]; then

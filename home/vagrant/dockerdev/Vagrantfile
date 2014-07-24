@@ -8,11 +8,15 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.define "dockerdev", primary: true do |config|
     config.vm.box = "fedora20"
     config.vm.box_url = "http://opscode-vm-bento.s3.amazonaws.com/vagrant/virtualbox/opscode_fedora-20_chef-provisionerless.box"
-    config.vm.hostname = "dockerdev"
+    config.vm.hostname = "dockerdev.local"
+    config.vm.network "private_network", type: "dhcp"
 
     config.vm.provision "shell", path: "provision.sh"
 
-    config.vm.synced_folder "#{ENV['HOME']}/Projects/go", "/home/vagrant/Projects/go"
+    config.vm.synced_folder "#{ENV['HOME']}/dotfiles", "/home/vagrant/dotfiles", :nfs => true
+    config.vm.synced_folder "#{ENV['HOME']}/Projects/go", "/home/vagrant/Projects/go", :nfs => true
+    config.vm.synced_folder "#{ENV['HOME']}/Projects/docker-images", "/home/vagrant/Projects/docker-images", :nfs => true
+    config.vm.synced_folder "#{ENV['HOME']}/Projects/scratch", "/home/vagrant/Projects/scratch", :nfs => true
   end
 
   config.vm.provider "virtualbox" do |v|
