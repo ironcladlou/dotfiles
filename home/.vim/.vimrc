@@ -17,7 +17,7 @@ Plugin 'xolox/vim-easytags'
 Plugin 'chriskempson/base16-vim'
 Plugin 'scrooloose/syntastic'
 Plugin 'Valloric/YouCompleteMe'
-
+Plugin 'rbgrouleff/bclose.vim'
 call vundle#end()
 
 syntax on
@@ -38,7 +38,7 @@ set shiftwidth=2
 set expandtab
 
 if has('gui_running')
-  set guifont=Monaco\ 11
+  set guifont=Monaco:h13
   set guioptions-=m  "remove menu bar
   set guioptions-=T  "remove toolbar
   set guioptions-=r  "remove right-hand scroll bar
@@ -128,7 +128,10 @@ inoremap <right> <nop>
 " Easier mode key
 nnoremap ; :
 
+" Easier escape
 inoremap jj <ESC>
+
+noremap <C-W> :Bclose<CR>
 
 " Ctrl-P configuration
 nmap ' :CtrlPBuffer<CR>

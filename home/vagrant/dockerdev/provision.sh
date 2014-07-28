@@ -3,7 +3,7 @@ set -euo pipefail
 IFS=$'\n\t'
 
 yum update -y
-yum install -y docker-io git vim golang e2fsprogs tmux
+yum install -y docker-io git vim golang e2fsprogs tmux httpie ctags hg
 
 systemctl enable docker
 systemctl start docker
