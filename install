@@ -1,69 +1,50 @@
-#!/bin/bash
+#!/bin/bash -euo pipefail
 
-# Figure out where we are
-df_dir="$( cd "$( dirname "$0" )" && pwd )"
+function dotfiles::link_files {
+  local source_dir=$1
+  local target_dir=$2
 
-common_bin_dir="${df_dir}/bin"
-common_home_dir="${df_dir}/home"
+  for f in $(find "${source_dir}" -maxdepth 1 -type f); do
+    local target="${target_dir}/$(basename ${f})"
+    echo "--> ${f} -> ${target}"  
+    ln -sf $f $target
+  done
+}
 
 # Platform detection
 case "$OSTYPE" in
-  solaris*) platform="solaris" ;;
   darwin*)  platform="osx" ;; 
   linux*)   platform="linux" ;;
-  bsd*)     platform="bsd" ;;
   *)        platform="unknown" ;;
 esac
 
-echo "Target platform: ${platform}"
-echo ""
+# Profile arg parsing
+profile=${1:-default}
 
-# Links binaries to $HOME/bin
-function install_files {
-  source_dir=$1
-  target_dir=$2
+# Constants
+dotfiles="$( cd "$( dirname "$0" )" && pwd )"
+dothome="${dotfiles}/home"
+thirdparty="${dotfiles}/thirdparty"
 
-  for f in $(find "${source_dir}" -maxdepth 1 -type f); do
-    target="${target_dir}/$(basename ${f})"
-    echo "---> ${f} -> ${target}"  
-    ln -sf $f $target
-  done
+declare -a install_sources=(
+  "${dothome}:${HOME}"
+  "${dothome}/.${platform}:${HOME}"
+  "${dothome}/.${profile}:${HOME}"
+)
 
-  echo ""
-}
+echo "Setting up dotfiles for ${platform} using profile ${profile}"
 
-# todo: refactor this into a generic thing that acts
-# upon an array
+for pair in "${install_sources[@]}"; do
+  src="${pair%%:*}"
+  dst="${pair#*:}"
+  if [[ -d "${src}" && -d "${dst}" ]]; then
+    echo "Installing dotfiles source: ${src} => ${dst}"
+    dotfiles::link_files ${src} ${dst}
+  fi
+done
 
-echo "Installing common binaries from ${common_bin_dir}"
-install_files ${common_bin_dir} $HOME/bin
-
-platform_bin_dir="${common_bin_dir}/platform/${platform}"
-if [ -d "${platform_bin_dir}" ]; then
-  echo "Installing ${platform} platform binaries from ${platform_bin_dir}"
-  install_files ${platform_bin_dir} $HOME/bin
-fi
-
-
-echo "Installing common dotfiles from ${common_home_dir}"
-install_files ${common_home_dir} $HOME
-
-platform_home_dir="${common_home_dir}/platform/${platform}"
-if [ -d "${platform_home_dir}" ]; then
-  echo "Installing ${platform} platform dotfiles from ${platform_home_dir}"
-  install_files ${platform_home_dir} $HOME
-fi
-
-if [ ! -L ~/.vim ]; then
-  echo "Settings up vim"
-  rm -rf ~/.vim 
-  ln -sf ${common_home_dir}/.vim ~/.vim
-  ln -sf ${common_home_dir}/.vim/.vimrc ~/.vimrc
-fi
-
-if [ ! -L ~/vagrant ]; then
-  echo "Setting up vagrantfiles"
-  ln -s ${common_home_dir}/vagrant ~/vagrant
-fi
-
-
+echo "Setting up vim"
+rm -rf ~/.vim
+mkdir -p ~/.vim/bundle
+ln -sf $thirdparty/Vundle.vim ~/.vim/bundle/Vundle.vim
+vim +PluginInstall +qall

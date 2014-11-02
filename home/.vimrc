@@ -6,18 +6,17 @@ set rtp+=~/.vim/bundle/Vundle.vim
 call vundle#begin()
 
 Plugin 'gmarik/Vundle.vim'
-Plugin 'Lokaltog/vim-powerline'
-Plugin 'kien/ctrlp.vim'
-Plugin 'scrooloose/nerdtree'
-Plugin 'christoomey/vim-tmux-navigator'
-Plugin 'fatih/vim-go'
-Plugin 'majutsushi/tagbar'
-Plugin 'xolox/vim-misc'
-Plugin 'xolox/vim-easytags'
 Plugin 'chriskempson/base16-vim'
-Plugin 'scrooloose/syntastic'
-Plugin 'Valloric/YouCompleteMe'
-Plugin 'rbgrouleff/bclose.vim'
+"Plugin 'Lokaltog/vim-powerline'
+"Plugin 'kien/ctrlp.vim'
+"Plugin 'scrooloose/nerdtree'
+"Plugin 'fatih/vim-go'
+"Plugin 'majutsushi/tagbar'
+"Plugin 'xolox/vim-misc'
+"Plugin 'xolox/vim-easytags'
+"Plugin 'scrooloose/syntastic'
+"Plugin 'Valloric/YouCompleteMe'
+"Plugin 'rbgrouleff/bclose.vim'
 call vundle#end()
 
 syntax on
@@ -29,8 +28,7 @@ endif
 
 " Color scheme
 set background=dark
-let base16colorspace=256
-colorscheme base16-ocean
+:silent! colorscheme base16-default
 
 set smartindent
 set tabstop=2
@@ -44,8 +42,6 @@ if has('gui_running')
   set guioptions-=r  "remove right-hand scroll bar
   set guioptions-=L  "remove left-hand scroll bar
   autocmd GUIEnter * set vb t_vb= " disable blinking
-  set lines=63
-  set columns=143
   
   vmap <C-c> "+yi
   vmap <C-v> c<ESC>"+p
@@ -53,8 +49,8 @@ if has('gui_running')
 endif
 
 " turn this stuff off since it's so damned slow
-let loaded_matchparen = 1
-set nocursorline
+" let loaded_matchparen=1
+" set nocursorline
 
 " other prefs
 set encoding=utf-8
@@ -66,11 +62,13 @@ set hidden
 set wildmenu
 set wildmode=list:longest
 set visualbell
-"set cursorline
 set ttyfast
 set backspace=indent,eol,start
 set laststatus=2
 set noswapfile
+set nu
+
+set omnifunc=syntaxcomplete#Complete
 
 " space leader
 let mapleader=" "
@@ -114,17 +112,6 @@ nnoremap K :grep! "\b<C-R><C-W>\b"<CR>:cwindow<CR>
 command! -nargs=+ -complete=file -bar Ag silent! grep! <args>|cwindow|redraw!
 nnoremap \ :Ag<SPACE>
 
-
-" Training wheels
-nnoremap <up> <nop>
-nnoremap <down> <nop>
-nnoremap <left> <nop>
-nnoremap <right> <nop>
-inoremap <up> <nop>
-inoremap <down> <nop>
-inoremap <left> <nop>
-inoremap <right> <nop>
-
 " Easier mode key
 nnoremap ; :
 
@@ -135,6 +122,7 @@ noremap <C-W> :Bclose<CR>
 
 " Ctrl-P configuration
 nmap ' :CtrlPBuffer<CR>
+nmap " :CtrlPBufTag<CR>
 " let g:ctrlp_map = '<Leader>t'
 let g:ctrlp_match_window_bottom = 0
 let g:ctrlp_match_window_reversed = 0
@@ -143,6 +131,15 @@ let g:ctrlp_working_path_mode = 0
 let g:ctrlp_dotfiles = 0
 let g:ctrlp_switch_buffer = 0
 let g:ctrlp_follow_symlinks = 1
+
+let g:ctrlp_extensions = ['tag', 'buffertag']
+
+let g:ctrlp_buftag_types = {
+    \ 'go' : {
+      \ 'bin': '/Users/dan/Projects/go/bin/gotags',
+      \ 'args': '-sort -silent'
+      \ }
+    \ }
 
 " Nerdtree configuration
 nmap t :NERDTreeToggle<CR>
@@ -154,6 +151,16 @@ au FileType go nmap gd <Plug>(go-def)
 au FileType go nmap gb <Plug>(go-build)
 au FileType go nmap <Leader>gd <Plug>(go-doc)
 let g:go_auto_type_info = 1
+
+" Easytags
+let g:easytags_cmd=''
+let g:easytags_languages = {
+      \   'go': {
+      \     'cmd': '/Users/dan/Projects/go/bin/gotags',
+      \       'args': ['-sort', '-silent'],
+      \       'stdout_opt': '',
+      \   }
+      \}
 
 " Tagbar configuration
 nmap <leader>c :TagbarToggle<CR>
@@ -186,7 +193,6 @@ let g:tagbar_type_go = {
     \ 'ctagsargs' : '-sort -silent'
     \ }
  
-call xolox#easytags#map_filetypes('go', 'go')
 
 " YouCompleteMe config
 let g:ycm_auto_trigger = 0
