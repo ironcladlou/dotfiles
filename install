@@ -1,4 +1,4 @@
-#!/bin/bash -euo pipefail
+#!/bin/bash -eu
 
 function dotfiles::link_files {
   local source_dir=$1
@@ -30,6 +30,8 @@ declare -a install_sources=(
   "${dothome}:${HOME}"
   "${dothome}/.${platform}:${HOME}"
   "${dothome}/.${profile}:${HOME}"
+  "${dothome}/bin:${HOME}/bin"
+  "${dothome}/bin/.${platform}:${HOME}/bin"
 )
 
 echo "Setting up dotfiles for ${platform} using profile ${profile}"

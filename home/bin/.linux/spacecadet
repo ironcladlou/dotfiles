@@ -1,0 +1,4 @@
+#!/bin/bash
+setxkbmap -option ctrl:nocaps
+killall xcape &>/dev/null
+xcape -t 300 -e 'Control_L=Escape' &>/dev/null

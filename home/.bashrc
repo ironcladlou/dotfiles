@@ -8,24 +8,20 @@ set -o ignoreeof
 
 # Path setup
 export GOPATH=$HOME/Projects/go
-export PATH=/usr/local/bin:$PATH:$HOME/bin:$GOPATH/bin
-
-# This must come after PATH is constructed
-if [ -f $(brew --prefix)/etc/bash_completion ]; then
-  . $(brew --prefix)/etc/bash_completion
-fi
+export PATH=/usr/local/bin:$PATH:$HOME/bin:$HOME/Applications/bin:$GOPATH/bin
 
 # Aliases
 alias rebash='source ~/.bashrc'
 alias vi='vim'
 alias rm='rm -i'
-alias ls='ls -G'
+alias ls='ls -h --color'
 
 # Fancy colors
-unset LS_COLORS
 source $HOME/dotfiles/thirdparty/base16-shell/base16-default.dark.sh
 
 # Git prompt config
+[ -f /usr/share/git-core/contrib/completion/git-prompt.sh ] && . /usr/share/git-core/contrib/completion/git-prompt.sh >/dev/null
+[ -f /etc/bash_completion.d/git ] && . /etc/bash_completion.d/git >/dev/null
 export GIT_PS1_SHOWDIRTYSTATE=true
 export GIT_PS1_SHOWUNTRACKEDFILES=true
 
@@ -50,7 +46,7 @@ function ghub {
     local repo=`basename $(pwd)`
     local url="https://github.com/ironcladlou/${repo}/tree/${branch}"
     echo "Launching ${url}"
-    open $url
+    xdg-open $url >/dev/null
   fi
 }
 
@@ -68,7 +64,7 @@ function gcomp {
   local url="https://github.com/ironcladlou/${repo}/compare/${remote_repo}:${remote_branch}...${branch}?expand=1"
 
   echo "Launching ${url}"
-  open $url
+  xdg-open $url >/dev/null
 }
 
 function gpull {
@@ -84,5 +80,5 @@ function gpull {
   fi
 
   local url="https://github.com/ironcladlou/${repo}/compare/${remote_repo_branch}...${branch}?expand=1"
-  open $url
+  xdg-open $url >/dev/null
 }

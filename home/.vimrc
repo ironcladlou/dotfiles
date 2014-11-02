@@ -28,7 +28,7 @@ endif
 
 " Color scheme
 set background=dark
-:silent! colorscheme base16-default
+colorscheme base16-default
 
 set smartindent
 set tabstop=2

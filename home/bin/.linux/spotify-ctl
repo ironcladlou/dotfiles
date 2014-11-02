@@ -1,0 +1,8 @@
+#!/bin/bash
+
+function playpause {
+    dbus-send --print-reply --dest=org.mpris.MediaPlayer2.spotify /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player.PlayPause 2>&1 >/dev/null
+}
+
+if [ "$1" == "playpause" ]; then playpause; fi
+
