@@ -33,7 +33,6 @@ declare -a install_sources=(
 )
 
 echo "Setting up dotfiles for ${platform} using profile ${profile}"
-
 for pair in "${install_sources[@]}"; do
   src="${pair%%:*}"
   dst="${pair#*:}"
