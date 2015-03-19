@@ -10,12 +10,15 @@ set -o ignoreeof
 export GOPATH=$HOME/Projects/go
 export PATH=/usr/local/bin:$PATH:$HOME/bin:$HOME/Applications/bin:$GOPATH/bin
 
+# OpenShift setup
+export KUBECONFIG=$GOPATH/src/github.com/openshift/origin/openshift.local.certificates/admin/.kubeconfig
+
 # Aliases
 alias rebash='source ~/.bashrc'
 alias vi='vim'
 alias rm='rm -i'
 alias ls='ls -h --color'
-
+alias osc='openshift cli'
 # Fancy colors
 source $HOME/dotfiles/thirdparty/base16-shell/base16-default.dark.sh
 
@@ -81,4 +84,45 @@ function gpull {
 
   local url="https://github.com/ironcladlou/${repo}/compare/${remote_repo_branch}...${branch}?expand=1"
   xdg-open $url >/dev/null
+}
+
+# Deletes a git branch locally AND remotely. Prompts for confirmation.
+function gd {
+  local branch=$1
+
+  if [ -z "$branch" ]; then
+    echo "Delete a git branch locally and remotely"
+    echo "usage:  gd <branch>"
+    return
+  fi
+
+  read -p "Delete '$branch' locally and remotely? " -n 2 -r
+  echo
+  if [[ $REPLY =~ ^[Yy]$ ]]; then
+    git branch -D $branch
+    git push origin :$branch
+  fi
+}
+
+# Tab completion support for gd.
+function _gd {
+  local cur=${COMP_WORDS[COMP_CWORD]}
+  local branches=$(git for-each-ref --sort=-committerdate --format="%(refname:short)" refs/heads/ | xargs)
+  COMPREPLY=( $(compgen -W '${branches}' -- $cur) )
+}
+complete -F _gd gd
+
+function dpurge {
+  local force=$1
+
+  if [ "$force" != "-f" ]; then
+    read -p "Purge all docker containers? " -n 2 -r
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+      echo "aborted."
+      return
+    fi
+  fi
+
+  docker stop $(docker ps -aq) 2>/dev/null
+  docker rm $(docker ps -aq) 2>/dev/null
 }
