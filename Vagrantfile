@@ -1,24 +1,6 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
-shares = [
-  {
-    src: "#{ENV['HOME']}/Projects/kubernetes/src/k8s.io/kubernetes",
-    dest: "/home/vagrant/code/kubernetes/src/k8s.io/kubernetes",
-    excludes: [
-      ".git/",
-      "_*",
-      ".vscode/",
-      ".vagrant/",
-      ".make/",
-      ".artifacts/",
-      "_output/",
-      "127*",
-      "localhost*"
-    ]
-  }
-]
-
 Vagrant.configure(2) do |config|
   # Use VirtualBox by default
   config.vm.provider "virtualbox"
@@ -49,14 +31,4 @@ Vagrant.configure(2) do |config|
     provider.vmx["numvcpus"] = "2"
     provider.vmx["ethernet1.pcislotnumber"] = "33"
   end
-
-  # config.vm.provision :ansible do |ansible|
-  #   ansible.tags = ENV['ANSIBLE_TAGS']
-  #   ansible.verbose = "v"
-  #   ansible.playbook = "ansible/playbook.yml"
-  # end
-
-  # shares.each do |share|
-  #   config.vm.synced_folder share[:src], share[:dest], type: "rsync", rsync__exclude: share[:excludes]
-  # end
 end
