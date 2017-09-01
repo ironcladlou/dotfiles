@@ -1,49 +1,21 @@
-#!/bin/bash -euo pipefail
+#!/bin/bash
+set -e
+set -u
+set -o pipefail
 
-function dotfiles::link_files {
-  local source_dir=$1
-  local target_dir=$2
-
-  for f in $(find "${source_dir}" -maxdepth 1 -type f); do
-    local target="${target_dir}/$(basename ${f})"
-    echo "--> ${f} -> ${target}"  
-    ln -sf $f $target
-  done
-}
-
-# Platform detection
+# Detect platform
 case "$OSTYPE" in
   darwin*)  platform="osx" ;; 
   linux*)   platform="linux" ;;
   *)        platform="unknown" ;;
 esac
 
-# Profile arg parsing
-profile=${1:-default}
+DOTFILES="$( cd "$( dirname "$0" )" && pwd )"
 
-# Constants
-dotfiles="$( cd "$( dirname "$0" )" && pwd )"
-dothome="${dotfiles}/home"
-thirdparty="${dotfiles}/thirdparty"
-
-declare -a install_sources=(
-  "${dothome}:${HOME}"
-  "${dothome}/.${platform}:${HOME}"
-  "${dothome}/.${profile}:${HOME}"
-)
-
-echo "Setting up dotfiles for ${platform} using profile ${profile}"
-for pair in "${install_sources[@]}"; do
-  src="${pair%%:*}"
-  dst="${pair#*:}"
-  if [[ -d "${src}" && -d "${dst}" ]]; then
-    echo "Installing dotfiles source: ${src} => ${dst}"
-    dotfiles::link_files ${src} ${dst}
-  fi
-done
-
-echo "Setting up vim"
-rm -rf ~/.vim
-mkdir -p ~/.vim/bundle
-ln -sf $thirdparty/Vundle.vim ~/.vim/bundle/Vundle.vim
-vim +PluginInstall +qall
+ln -sf $DOTFILES/bin $HOME/bin
+ln -sf $DOTFILES/bash/bashrc $HOME/.bashrc
+ln -sf $DOTFILES/bash/bash_profile $HOME/.bash_profile
+ln -sf $DOTFILES/tmux/tmux.conf $HOME/.tmux.conf
+ln -sf $DOTFILES/git/gitconfig $HOME/.gitconfig
+ln -sf $DOTFILES/git/gitignore_global $HOME/.gitignore_global
+ln -sf $DOTFILES/ruby/gemrc $HOME/.gemrc

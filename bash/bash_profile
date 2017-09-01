@@ -1,0 +1,2 @@
+# Only source bashrc when in interactive mode.
+[[ $- == *i* ]] && . "$HOME/.bashrc"

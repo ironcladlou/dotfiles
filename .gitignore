@@ -1,1 +1,4 @@
 *.sublime-workspace
+.vagrant
+.DS_Store
+.vscode

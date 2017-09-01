@@ -1,0 +1,152 @@
+#!/bin/bash
+
+# Detect platform
+case "$OSTYPE" in
+  darwin*)  platform="osx" ;; 
+  linux*)   platform="linux" ;;
+  *)        platform="unknown" ;;
+esac
+
+# Preserve history
+shopt -s histappend
+
+# Prevent Ctrl-D from nuking shells
+set -o ignoreeof
+
+# Path setup
+export PATH="$PATH:$HOME/bin"
+
+# Thy holy editor.
+export EDITOR=vim
+
+# Aliases
+alias rebash='source ~/.bashrc'
+
+# Brew setup on OSX
+[[ $platform == "osx" ]] && hash brew 2>/dev/null && source $(brew --prefix)/etc/bash_completion
+
+# Git prompt setup on linux.
+[[ $platform == "linux" ]] && source /usr/share/git-core/contrib/completion/git-prompt.sh
+
+# Git prompt config
+export GIT_PS1_SHOWDIRTYSTATE=true
+export GIT_PS1_SHOWUNTRACKEDFILES=true
+
+# Thy holy prompt.
+prompt_title="\033]0;\W\007\n\[\e[1;37m\]"
+prompt_glyph="★"
+c_reset="\[\e[0;39m\]"
+c_user="\[\e[1;33m\]"
+c_host="\[\e[1;36m\]"
+c_pwd="\[\e[0;33m\]"
+c_git="\[\e[0;36m\]"
+c_glyph="\[\e[0;36m\]"
+PROMPT_COMMAND='history -a;PS1="${prompt_title}${c_glyph}${prompt_glyph}${c_reset} ${c_user}\u${c_reset}:${c_pwd}\w${c_reset}${c_git}$(__git_ps1 " (%s)")${c_reset} \[\e[1;37m\]${c_reset}\n$ "'
+
+
+# Direnv setup everywhere.
+# IMPORTANT: Must come after prompt.
+hash direnv 2>/dev/null && eval "$(direnv hook bash)"
+
+
+# Random functions
+function ghub {
+  local branch=`git rev-parse --abbrev-ref HEAD`
+  if [ ! -z "$branch" ]; then
+    local repo=`basename $(pwd)`
+    local url="https://github.com/ironcladlou/${repo}/tree/${branch}"
+    echo "Launching ${url}"
+    open $url
+  fi
+}
+
+function gcomp {
+  local repo=`basename $(pwd)`
+  local branch=`git rev-parse --abbrev-ref HEAD`
+  local remote=`git rev-parse --abbrev-ref --symbolic-full-name @{u}`
+
+  if [ -z "$remote}" ]; then return; fi
+
+  local remote_array=(${remote//\// })
+  local remote_repo=${remote_array[0]}
+  local remote_branch=${remote_array[1]}
+
+  local url="https://github.com/ironcladlou/${repo}/compare/${remote_repo}:${remote_branch}...${branch}?expand=1"
+
+  echo "Launching ${url}"
+  open $url
+}
+
+function gpull {
+  set -e
+	[[ $(git rev-parse --abbrev-ref --symbolic-full-name @{u}) =~ ^(.*)\/(.*)$ ]]
+	local upstream_remote="${BASH_REMATCH[1]}"
+	local upstream_branch="${BASH_REMATCH[2]}"
+	[[ $(git remote get-url "$upstream_remote") =~ ^git@github.com:(.*)\/(.*)\.git$ ]]
+	local upstream_account="${BASH_REMATCH[1]}"
+	local upstream_repo="${BASH_REMATCH[2]}"
+  [[ $(git remote get-url origin) =~ ^git@github.com:(.*)\/(.*)\.git$ ]]
+	local origin_account="${BASH_REMATCH[1]}"
+	local origin_repo="${BASH_REMATCH[2]}"
+	local origin_branch="$(git rev-parse --abbrev-ref HEAD)"
+	if [ "$1" == "-v" ]; then
+		echo "upstream remote: $upstream_remote"
+		echo "upstream branch: $upstream_branch"
+		echo "upstream account: $upstream_account"
+		echo "upstream repo: $upstream_repo"
+		echo "origin account: $origin_account"
+		echo "origin repo: $origin_repo"
+  	echo "origin branch: $origin_branch"
+  fi
+  local url="https://github.com/$upstream_account/$upstream_repo/compare/$upstream_branch...$origin_account:$origin_branch?expand=1"
+	echo "Opening $url"
+	open $url
+	set +e
+}
+
+# Deletes a git branch locally AND remotely. Prompts for confirmation.
+function gd {
+  local branch=$1
+
+  if [ -z "$branch" ]; then
+    echo "Delete a git branch locally and remotely"
+    echo "usage:  gd <branch>"
+    return
+  fi
+
+  read -p "Delete '$branch' locally and remotely? " -n 2 -r
+  echo
+  if [[ $REPLY =~ ^[Yy]$ ]]; then
+    git branch -D $branch
+    git push origin :$branch &
+  fi
+}
+
+# Tab completion support for gd.
+function _gd {
+  local cur=${COMP_WORDS[COMP_CWORD]}
+  local branches=$(git for-each-ref --sort=-committerdate --format="%(refname:short)" refs/heads/ | xargs)
+  COMPREPLY=( $(compgen -W '${branches}' -- $cur) )
+}
+complete -F _gd gd
+
+function dpurge {
+  local force=$1
+
+  if [ "$force" != "-f" ]; then
+    read -p "Purge all docker containers? " -n 2 -r
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+      echo "aborted."
+      return
+    fi
+  fi
+
+  docker stop $(docker ps -aq) 2>/dev/null
+  docker rm $(docker ps -aq) 2>/dev/null
+}
+
+# TODO: OSX only...
+function myip {
+  ifconfig en0 | awk '$1 == "inet" {print $2}' | tr -d '\n'
+}
+export myip
