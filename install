@@ -18,4 +18,6 @@ ln -sf $DOTFILES/bash/bash_profile $HOME/.bash_profile
 ln -sf $DOTFILES/tmux/tmux.conf $HOME/.tmux.conf
 ln -sf $DOTFILES/git/gitconfig $HOME/.gitconfig
 ln -sf $DOTFILES/git/gitignore_global $HOME/.gitignore_global
+ln -sf $DOTFILES/git/tigrc $HOME/.tigrc
 ln -sf $DOTFILES/ruby/gemrc $HOME/.gemrc
+ln -sf $DOTFILES/vim/vimrc $HOME/.vimrc

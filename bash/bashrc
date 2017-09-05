@@ -22,10 +22,12 @@ export EDITOR=vim
 # Aliases
 alias rebash='source ~/.bashrc'
 
-# Brew setup on OSX
+# (macos) Brew completion
 [[ $platform == "osx" ]] && hash brew 2>/dev/null && source $(brew --prefix)/etc/bash_completion
+# (macos) Colorful ls
+export CLICOLOR=1
 
-# Git prompt setup on linux.
+# (linux) Git completion/prompt support
 [[ $platform == "linux" ]] && source /usr/share/git-core/contrib/completion/git-prompt.sh
 
 # Git prompt config

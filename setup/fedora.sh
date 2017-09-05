@@ -85,6 +85,9 @@ dotfiles::install_pkg docker
 dotfiles::install_pkg tmux
 dotfiles::install_pkg vim-enhanced
 dotfiles::install_pkg nmap-ncat
+dotfiles::install_pkg tig
+dotfiles::install_pkg tito
+dotfiles::install_pkg createrepo
 
 dotfiles::setup_docker
 

@@ -24,6 +24,7 @@ Vagrant.configure(2) do |config|
     # Use faster paravirtualized networking
     provider.customize ["modifyvm", :id, "--nictype1", "virtio"]
     provider.customize ["modifyvm", :id, "--nictype2", "virtio"]
+    provider.customize [ "guestproperty", "set", :id, "/VirtualBox/GuestAdd/VBoxService/--timesync-set-threshold", 1000 ]
   end
 
   config.vm.provider :vmware_fusion do |provider, override|

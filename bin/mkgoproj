@@ -1,0 +1,42 @@
+#!/bin/bash
+set -e
+set -u
+set -o pipefail
+
+PROJECT_NAME="${1:-}"
+GO_VERSION="${2:-}"
+
+function usage_and_exit {
+  echo "usage:  mkgoproj <name> <go version>"
+  exit 1
+}
+
+[[ -z "$PROJECT_NAME" ]] && usage_and_exit
+[[ -z "$GO_VERSION" ]] && usage_and_exit
+
+GO_DIR=$HOME/.go/$GO_VERSION
+PROJECT_DIR=$HOME/Projects/$PROJECT_NAME
+
+if [ -d $PROJECT_DIR ]; then
+  echo "project already exists at $PROJECT_DIR"
+  exit 1
+fi
+
+if [ ! -d $GO_DIR ]; then
+  echo "Go directory not found at $GO_DIR"
+  exit 1
+fi
+
+mkdir $PROJECT_DIR
+
+cat << EOF > $PROJECT_DIR/.envrc
+export GOROOT="\$HOME/.go/$GO_VERSION"
+export GOPATH=\$(expand_path .)
+export PATH="\$GOROOT/bin:\$PATH:\$(expand_path .)/bin"
+EOF
+
+pushd $PROJECT_DIR >/dev/null
+direnv allow
+popd >/dev/null
+
+echo "created project at $PROJECT_DIR"
