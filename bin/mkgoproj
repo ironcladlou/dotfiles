@@ -14,7 +14,9 @@ function usage_and_exit {
 [[ -z "$PROJECT_NAME" ]] && usage_and_exit
 [[ -z "$GO_VERSION" ]] && usage_and_exit
 
-GO_DIR=$HOME/.go/$GO_VERSION
+
+GO_DIST_DIR=$HOME/.go/dist
+GO_DIR=$GO_DIST_DIR/go$GO_VERSION
 PROJECT_DIR=$HOME/Projects/$PROJECT_NAME
 
 if [ -d $PROJECT_DIR ]; then
@@ -30,7 +32,7 @@ fi
 mkdir $PROJECT_DIR
 
 cat << EOF > $PROJECT_DIR/.envrc
-export GOROOT="\$HOME/.go/$GO_VERSION"
+export GOROOT="\$HOME/.go/dist/go$GO_VERSION"
 export GOPATH=\$(expand_path .)
 export PATH="\$GOROOT/bin:\$PATH:\$(expand_path .)/bin"
 EOF
