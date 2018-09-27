@@ -1,18 +1,24 @@
 [user]
 	name = Dan Mace
 	email = ironcladlou@gmail.com
-[color]
-	ui = auto
 
 [push]
 	default = matching
+
 [core]
 	excludesfile = ~/.gitignore_global
 	editor = /usr/bin/vim
+
 [bash]
 	showDirtyState = true
 	showUntrackedFiles = false
+
 [filter "media"]
 	required = true
 	clean = git media clean %f
 	smudge = git media smudge %f
+
+[color]
+	branch = auto
+	diff = auto
+	status = auto

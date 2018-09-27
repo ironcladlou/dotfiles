@@ -1,0 +1,41 @@
+// Place your settings in this file to overwrite the default settings
+{
+  "window.newWindowDimensions": "maximized",
+  "editor.fontFamily": "Monaco",
+  "editor.fontSize": 13,
+  "editor.tabSize": 2,
+  "files.autoSave": "off",
+  "editor.selectionHighlight": false,
+  "editor.quickSuggestions": false,
+  "editor.suggestOnTriggerCharacters": false,
+  "editor.rulers": [],
+  "editor.mouseWheelZoom": false,
+  "explorer.autoReveal": false,
+  // Go stuff
+  "go.buildOnSave": "off",
+  "go.lintOnSave": "off",
+  "go.vetOnSave": "off",
+  "go.buildFlags": [],
+  "go.lintFlags": [],
+  "go.vetFlags": ["-shadow", "-shadowstrict"],
+  "go.formatTool": "goimports",
+  "go.useCodeSnippetsOnFunctionSuggest": false,
+  "workbench.activityBar.visible": false,
+  "window.zoomLevel": 0,
+  "workbench.colorTheme": "Monokai Dark Soda",
+  "editor.renderWhitespace": "none",
+  "editor.cursorBlinking": "solid",
+  "window.nativeTabs": false,
+  "terminal.integrated.fontFamily": "Monaco",
+  "terminal.integrated.fontSize": 13,
+  "editor.codeLens": false,
+  "files.associations": {
+    "Vagrantfile": "ruby"
+  },
+  "editor.minimap.enabled": false,
+  "workbench.settings.editor": "json",
+  
+  "ActiveFileInStatusBar.enable": true,
+  // Show fullpath or relative path in status bar.
+  "ActiveFileInStatusBar.fullpath": true,
+}
