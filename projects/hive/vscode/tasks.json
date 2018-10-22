@@ -6,7 +6,7 @@
         {
             "label": "build",
             "type": "shell",
-            "command": "${GOROOT}/bin/go build ./... ; ${GOROOT}/bin/go test -tags integration -run ^$ ./...",
+            "command": "${GOROOT}/bin/go build ./...",
             "options": {
                 "env": {
                     "GOROOT": "/Users/dmace/.go/1.10.3",
