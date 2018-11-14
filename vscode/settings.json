@@ -38,5 +38,6 @@
   "ActiveFileInStatusBar.enable": true,
   // Show fullpath or relative path in status bar.
   "ActiveFileInStatusBar.fullpath": false,
-  "breadcrumbs.enabled": true,
+  "breadcrumbs.enabled": false,
+  "extensions.ignoreRecommendations": false,
 }

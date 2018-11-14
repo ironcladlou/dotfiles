@@ -6,11 +6,11 @@
         {
             "label": "build",
             "type": "shell",
-            "command": "${GOROOT}/bin/go build ./...",
+            "command": "${GOROOT}/bin/go build . ; ${GOROOT}/bin/go test -run ^$ ./...",
             "options": {
                 "env": {
                     "GOROOT": "/Users/dmace/.go/1.10.3",
-                    "GOPATH": "/Users/dmace/Projects/origin"
+                    "GOPATH": "/Users/dmace/Projects/coredns"
                 }
             },
             "group": {
