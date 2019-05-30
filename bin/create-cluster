@@ -1,0 +1,124 @@
+#/bin/bash
+set -euo pipefail
+
+WHAT="${1:-}"
+PLATFORM="${2:=}"
+NAME="${3:-}"
+CLUSTER_DIR="$HOME/clusters/${PLATFORM}-${NAME}"
+
+if [ -z "$NAME" ]; then
+  echo "usage: create-cluster <cluster|config> <platform> <name>"
+  exit 1
+fi
+if [ -z "$PLATFORM" ]; then
+  echo "usage: create-cluster <platform> <name>"
+  exit 1
+fi
+if [ -d "$CLUSTER_DIR" ]; then
+  echo "Error: ${CLUSTER_DIR} already exists"
+  exit 1
+fi
+
+mkdir "$CLUSTER_DIR"
+CLUSTER_ID=$(python -c "import uuid, sys;sys.stdout.write(str(uuid.uuid4()))")
+
+function create_aws_config {
+  AWS_REGION=$(aws configure get region)
+  AUTHS_JSON="$(jq '.auths' $HOME/.docker/config.json)"
+  SSH_KEY=$(<$HOME/.ssh/id_rsa.pub)  
+
+  cat << EOF > ${CLUSTER_DIR}/install-config.yaml
+  apiVersion: v1
+  baseDomain: devcluster.openshift.com
+  clusterID: ${CLUSTER_ID}
+  machines:
+  - name: master
+    replicas: 3
+  - name: worker
+    replicas: 3
+  metadata:
+    name: ${NAME}
+  networking:
+    clusterNetworks:
+    - cidr: 10.128.0.0/14
+      hostSubnetLength: 9
+    machineCIDR: 10.0.0.0/16
+    serviceCIDR: 172.30.0.0/16
+    type: OpenshiftSDN
+  platform:
+    aws:
+      region: ${AWS_REGION}
+  pullSecret: '{"auths": ${AUTHS_JSON}}'
+  sshKey: '${SSH_KEY}'
+EOF
+}
+
+function create_azure_config {
+  local sp_file="${HOME}/.azure/osServicePrincipal.json"
+  if [ ! -f $sp_file ]; then
+    local SUB_ID="$(az account show | jq -r '.id')"
+    local SP=$(az ad sp create-for-rbac --role="Owner" --scopes="/subscriptions/${SUB_ID}" --name "${NAME}-installer")
+    echo "created new service principal:"
+    echo "$SP"
+    jq --arg SUB_ID "$SUB_ID" '{subscriptionId:$SUB_ID,clientId:.appId, clientSecret:.password,tenantId:.tenant}' <<< $SP >$sp_file
+    echo "created new credentials at $sp_file"
+  fi
+  local AZURE_REGION="centralus"
+  # TODO: jq -r '.auths | {"auths": .}' $HOME/.docker/config.json
+  local AUTHS_JSON="$(jq '.auths' $HOME/.docker/config.json)"
+  local SSH_KEY=$(<$HOME/.ssh/id_rsa.pub)  
+
+  cat << EOF > ${CLUSTER_DIR}/install-config.yaml
+apiVersion: v1
+baseDomain: networkedge.azure.devcluster.openshift.com
+clusterID: ${CLUSTER_ID}
+metadata:
+  name: ${NAME}
+compute:
+- hyperthreading: Enabled
+  name: worker
+  platform: {}
+  replicas: 3
+controlPlane:
+  hyperthreading: Enabled
+  name: master
+  platform: {}
+  replicas: 3
+networking:
+  clusterNetwork:
+  - cidr: 10.128.0.0/14
+    hostPrefix: 23
+  machineCIDR: 10.0.0.0/16
+  networkType: OpenShiftSDN
+  serviceNetwork:
+  - 172.30.0.0/16
+platform:
+  azure:
+    baseDomainResourceGroupName: os4-common
+    region: ${AZURE_REGION}
+pullSecret: '{"auths": ${AUTHS_JSON}}'
+sshKey: '${SSH_KEY}'
+EOF
+  export ARM_CLIENT_ID="$(jq -r '.clientId' $sp_file)"
+  export ARM_CLIENT_SECRET="$(jq -r '.clientSecret' $sp_file)"
+  export ARM_SUBSCRIPTION_ID="$(jq -r '.subscriptionId' $sp_file)"
+  export ARM_TENANT_ID="$(jq -r '.tenantId' $sp_file)"
+}
+
+if [ "$PLATFORM" == "aws" ]; then
+  create_aws_config
+elif [ "$PLATFORM" == "azure" ]; then
+  create_azure_config
+else
+  echo "unrecognized platform '$PLATFORM'"
+  exit 1
+fi
+
+if [ "$WHAT" == "cluster" ]; then
+  openshift-install create cluster --dir="$CLUSTER_DIR"
+elif [ "$WHAT" == "config" ]; then
+  echo "wrote config to $CLUSTER_DIR"
+else
+  echo "unrecognized command: $WHAT"
+  exit 1
+fi

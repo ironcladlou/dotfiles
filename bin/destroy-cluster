@@ -1,0 +1,31 @@
+#/bin/bash
+set -euo pipefail
+
+PLATFORM="${1:=}"
+NAME="${2:-}"
+CLUSTER_DIR="$HOME/clusters/${PLATFORM}-${NAME}"
+
+if [ -z "$PLATFORM" ]; then
+  echo "usage: destroy-cluster <platform> <name>"
+  exit 1
+fi
+if [ -z "$NAME" ]; then
+  echo "usage: destroy-cluster <platform> <name>"
+  exit 1
+fi
+
+if [ ! -d "$CLUSTER_DIR" ]; then
+  echo "${CLUSTER_DIR} doesn't exist"
+  exit 1
+fi
+
+if [ "$PLATFORM" == "azure" ]; then
+  az network dns record-set cname remove-record --resource-group os4-common --zone-name networkedge.azure.devcluster.openshift.com --record-set-name "api.${NAME}" --cname "api.${NAME}.networkedge.azure.devcluster.openshift.com" || :
+  echo "WARNING: you must manually delete the resource group for now"
+else
+  openshift-install destroy cluster --log-level debug --dir $CLUSTER_DIR
+fi
+
+TRASH=$(mktemp -d)
+mv $CLUSTER_DIR $TRASH
+echo "Moved $CLUSTER_DIR to $TRASH"
