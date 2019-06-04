@@ -99,10 +99,10 @@ platform:
 pullSecret: '{"auths": ${AUTHS_JSON}}'
 sshKey: '${SSH_KEY}'
 EOF
-  export ARM_CLIENT_ID="$(jq -r '.clientId' $sp_file)"
-  export ARM_CLIENT_SECRET="$(jq -r '.clientSecret' $sp_file)"
-  export ARM_SUBSCRIPTION_ID="$(jq -r '.subscriptionId' $sp_file)"
-  export ARM_TENANT_ID="$(jq -r '.tenantId' $sp_file)"
+  #export ARM_CLIENT_ID="$(jq -r '.clientId' $sp_file)"
+  #export ARM_CLIENT_SECRET="$(jq -r '.clientSecret' $sp_file)"
+  #export ARM_SUBSCRIPTION_ID="$(jq -r '.subscriptionId' $sp_file)"
+  #export ARM_TENANT_ID="$(jq -r '.tenantId' $sp_file)"
 }
 
 if [ "$PLATFORM" == "aws" ]; then
