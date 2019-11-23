@@ -8,18 +8,30 @@ EOF
 exit 1
 }
 
-
-LATEST=$(curl -s https://openshift-release.svc.ci.openshift.org/api/v1/releasestream/4.2.0-0.ci/latest | jq -r '.name')
+#STREAM="4.3.0-0.ci"
+#LATEST=$(curl -s https://openshift-release.svc.ci.openshift.org/api/v1/releasestream/${STREAM}/latest | jq -r '.name')
+LATEST=$(curl https://mirror.openshift.com/pub/openshift-v4/clients/ocp-dev-preview/latest/release.txt 2>&1 | grep Version: | awk '{ print $2}')
 VERSION="${VERSION:-$LATEST}"
 
-oc --server=https://api.ci.openshift.org registry login || show_login_help
+#oc --server=https://api.ci.openshift.org registry login || show_login_help
 
 DIR=$(mktemp -d)
 pushd $DIR >/dev/null
 echo "Downloading $VERSION to $DIR"
-oc adm release extract --tools registry.svc.ci.openshift.org/ocp/release:$VERSION
+
+wget https://mirror.openshift.com/pub/openshift-v4/clients/ocp-dev-preview/latest/openshift-install-mac-${VERSION}.tar.gz
+wget https://mirror.openshift.com/pub/openshift-v4/clients/ocp-dev-preview/latest/openshift-client-mac-${VERSION}.tar.gz
+
+#wget https://openshift-release-artifacts.svc.ci.openshift.org/${VERSION}/openshift-client-mac-${VERSION}.tar.gz
+#wget https://openshift-release-artifacts.svc.ci.openshift.org/${VERSION}/openshift-install-mac-${VERSION}.tar.gz
+
+#oc adm release extract --tools registry.svc.ci.openshift.org/ocp/release:$VERSION
 find $DIR -name '*.tar.gz' -exec tar zxvf {} \;
 mv $DIR/oc $HOME/bin
 mv $DIR/openshift-install $HOME/bin
 popd >/dev/null
 echo Done
+
+#https://openshift-release-artifacts.svc.ci.openshift.org/4.3.0-0.ci-2019-10-31-115228
+#https://openshift-release-artifacts.svc.ci.openshift.org/4.3.0-0.ci-2019-10-31-115228/openshift-client-mac-4.3.0-0.ci-2019-10-31-115228.tar.gz
+#https://openshift-release-artifacts.svc.ci.openshift.org/4.3.0-0.ci-2019-10-31-115228/openshift-install-mac-4.3.0-0.ci-2019-10-31-115228.tar.gz

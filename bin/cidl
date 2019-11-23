@@ -1,0 +1,22 @@
+#!/usr/bin/env ruby
+
+require 'uri'
+
+in_url = ARGV[0]
+
+path = in_url.split("/")[5..-1].join("/")
+
+dir = [ENV['HOME'], 'ci-runs', path.split("/")[-2..-1].join("_")].join("/")
+
+url = URI.join("https://gcsweb-ci.svc.ci.openshift.org/gcs/", path)
+
+puts "Browseable URL: #{url}"
+puts "Downloading to #{dir}"
+puts `mkdir #{dir}`
+puts `gsutil -m cp -r gs://#{path} #{dir}`
+puts "Downloaded to #{dir}"
+
+# https://prow.svc.ci.openshift.org/view/gcs/origin-ci-test/logs/release-openshift-ocp-installer-e2e-azure-4.3/209
+# https://gcsweb-ci.svc.ci.openshift.org/gcs/origin-ci-test/logs/release-openshift-ocp-installer-e2e-azure-4.3/209/
+# gsutil -m cp -r gs://origin-ci-test/logs/release-openshift-origin-installer-e2e-aws-upgrade-4.2/11 release-openshift-origin-installer-e2e-aws-upgrade-4.2_11
+

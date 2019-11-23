@@ -1,0 +1,4 @@
+#!/bin/bash
+
+cluster_name=$1
+aws ec2 describe-instances --filter "Name=tag:Name,Values=$(jq -r '.infraID' $HOME/clusters/$cluster_name/metadata.json)-bootstrap" | jq -r '.Reservations[0].Instances[0].NetworkInterfaces[0].Association.PublicDnsName'

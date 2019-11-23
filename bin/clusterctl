@@ -1,0 +1,206 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+function print_usage_exit() {
+  echo "usage: clusterctl [create|delete|config|manifests] <platform> <name>"
+  exit 1
+}
+
+WHAT="${1:-}"
+PLATFORM="${2:-}"
+NAME="${3:-}"
+CLUSTER_DIR="$HOME/clusters/${PLATFORM}-${NAME}"
+
+if [ -z "$WHAT" ]; then print_usage_exit; fi
+if [ -z "$NAME" ]; then print_usage_exit; fi
+if [ -z "$PLATFORM" ]; then print_usage_exit; fi
+
+function create_gcp_config {
+  AUTHS_JSON="$(jq '.auths' $HOME/.docker/config.json)"
+  SSH_KEY=$(<$HOME/.ssh/id_rsa.pub)  
+  # compute:
+  # - name: worker
+  #   replicas: 3
+  # controlPlane:
+  #   name: master
+  #   replicas: 3
+
+  cat << EOF > ${CLUSTER_DIR}/install-config.yaml
+  apiVersion: v1
+  baseDomain: gcp.devcluster.openshift.com
+  clusterID: ${CLUSTER_ID}
+  metadata:
+    name: ${NAME}
+  networking:
+    clusterNetwork:
+    - cidr: 10.128.0.0/14
+      hostPrefix: 23
+    machineCIDR: 10.0.0.0/16
+    networkType: OpenShiftSDN
+    serviceNetwork:
+    - 172.30.0.0/16
+  platform:
+    gcp:
+      region: us-east1
+      projectID: openshift-gce-devel
+  pullSecret: '{"auths": ${AUTHS_JSON}}'
+  sshKey: '${SSH_KEY}'
+EOF
+}
+
+function create_aws_config {
+  AWS_REGION=$(aws configure get region)
+  #AUTHS_JSON="$(jq '.auths' $HOME/.docker/config.json)"
+  local AUTHS_JSON="$(<$HOME/Downloads/pull-secret)"
+  SSH_KEY=$(<$HOME/.ssh/id_rsa.pub)
+
+  cat << EOF > ${CLUSTER_DIR}/install-config.yaml
+  apiVersion: v1
+  baseDomain: devcluster.openshift.com
+  clusterID: ${CLUSTER_ID}
+  machines:
+  - name: master
+    replicas: 3
+  - name: worker
+    replicas: 3
+  metadata:
+    name: ${NAME}
+  networking:
+    clusterNetworks:
+    - cidr: 10.128.0.0/14
+      hostSubnetLength: 9
+    machineCIDR: 10.0.0.0/16
+    serviceCIDR: 172.30.0.0/16
+    type: OpenshiftSDN
+  platform:
+    aws:
+      region: ${AWS_REGION}
+  pullSecret: '${AUTHS_JSON}'
+  sshKey: '${SSH_KEY}'
+EOF
+}
+
+function create_azure_config {
+  local sp_file="${HOME}/.azure/osServicePrincipal.json"
+  if [ ! -f $sp_file ]; then
+    local SUB_ID="$(az account show | jq -r '.id')"
+    local SP=$(az ad sp create-for-rbac --role="Owner" --scopes="/subscriptions/${SUB_ID}" --name "${NAME}-installer")
+    echo "created new service principal:"
+    echo "$SP"
+    jq --arg SUB_ID "$SUB_ID" '{subscriptionId:$SUB_ID,clientId:.appId, clientSecret:.password,tenantId:.tenant}' <<< $SP >$sp_file
+    echo "created new credentials at $sp_file"
+  fi
+  local AZURE_REGION="centralus"
+  # TODO: jq -r '.auths | {"auths": .}' $HOME/.docker/config.json
+  local AUTHS_JSON="$(jq '.auths' $HOME/.docker/config.json)"
+  local SSH_KEY=$(<$HOME/.ssh/id_rsa.pub)  
+
+  cat << EOF > ${CLUSTER_DIR}/install-config.yaml
+apiVersion: v1
+baseDomain: networkedge.azure.devcluster.openshift.com
+clusterID: ${CLUSTER_ID}
+metadata:
+  name: ${NAME}
+compute:
+- hyperthreading: Enabled
+  name: worker
+  replicas: 3
+controlPlane:
+  hyperthreading: Enabled
+  name: master
+  replicas: 3
+networking:
+  clusterNetwork:
+  - cidr: 10.128.0.0/14
+    hostPrefix: 23
+  machineCIDR: 10.0.0.0/16
+  networkType: OpenShiftSDN
+  serviceNetwork:
+  - 172.30.0.0/16
+platform:
+  azure:
+    baseDomainResourceGroupName: os4-common
+    region: ${AZURE_REGION}
+pullSecret: '{"auths": ${AUTHS_JSON}}'
+sshKey: '${SSH_KEY}'
+EOF
+  #export ARM_CLIENT_ID="$(jq -r '.clientId' $sp_file)"
+  #export ARM_CLIENT_SECRET="$(jq -r '.clientSecret' $sp_file)"
+  #export ARM_SUBSCRIPTION_ID="$(jq -r '.subscriptionId' $sp_file)"
+  #export ARM_TENANT_ID="$(jq -r '.tenantId' $sp_file)"
+}
+
+function create_config() {
+  mkdir "$CLUSTER_DIR"
+  CLUSTER_ID=$(python -c "import uuid, sys;sys.stdout.write(str(uuid.uuid4()))")
+
+  if [ "$PLATFORM" == "aws" ]; then
+    create_aws_config
+  elif [ "$PLATFORM" == "azure" ]; then
+    create_azure_config
+  elif [ "$PLATFORM" == "gcp" ]; then
+    create_gcp_config
+  else
+    echo "unrecognized platform '$PLATFORM'"
+    exit 1
+  fi
+  echo "wrote install config to $CLUSTER_DIR"
+}
+
+function create_cluster() {
+  if [ "$PLATFORM" == "aws" ]; then
+    openshift-install create cluster --dir="$CLUSTER_DIR"
+  elif [ "$PLATFORM" == "azure" ]; then
+    openshift-install create cluster --dir="$CLUSTER_DIR"
+  elif [ "$PLATFORM" == "gcp" ]; then
+    GOOGLE_CREDENTIALS=/Users/dmace/Projects/shared-secrets/gce/aos-serviceaccount.json \
+      openshift-install create cluster --dir="$CLUSTER_DIR"
+  else
+    echo "unrecognized platform '$PLATFORM'"
+    exit 1
+  fi
+}
+
+function delete() {
+  CLUSTER_DIR="$HOME/clusters/${PLATFORM}-${NAME}"
+
+  if [ ! -d "$CLUSTER_DIR" ]; then
+    echo "${CLUSTER_DIR} doesn't exist"
+    exit 1
+  fi
+
+  openshift-install destroy cluster --log-level debug --dir $CLUSTER_DIR
+
+  TRASH=$(mktemp -d)
+  mv $CLUSTER_DIR $TRASH
+  echo "moved $CLUSTER_DIR to $TRASH"
+}
+
+if [ "$WHAT" == "config" ]; then
+  if [ -d "$CLUSTER_DIR" ]; then
+    echo "Error: ${CLUSTER_DIR} already exists"
+    exit 1
+  fi
+
+  create_config
+elif [ "$WHAT" == "manifests" ]; then
+  if [ -d "$CLUSTER_DIR" ]; then
+    echo "Error: ${CLUSTER_DIR} already exists"
+    exit 1
+  fi
+
+  create_config
+  openshift-install create manifests --dir "$CLUSTER_DIR"
+elif [ "$WHAT" == "create" ]; then
+  if [ -d "$CLUSTER_DIR" ]; then
+    echo "Error: ${CLUSTER_DIR} already exists"
+    exit 1
+  fi
+
+  create_config
+  create_cluster
+elif [ "$WHAT" == "delete" ]; then
+  delete
+else
+  print_usage_exit
+fi

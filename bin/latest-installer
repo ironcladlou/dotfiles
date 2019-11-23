@@ -1,0 +1,6 @@
+#!/bin/bash
+set -euo pipefail
+
+VERSION="${VERSION:-4.3}"
+LATEST=$(curl -s https://openshift-release.svc.ci.openshift.org/api/v1/releasestream/${VERSION}.0-0.ci/latest | jq -r '.name')
+echo $LATEST
