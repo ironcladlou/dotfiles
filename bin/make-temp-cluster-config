@@ -1,0 +1,17 @@
+#!/bin/bash
+set -ueo pipefail
+
+NAME=$1
+CONFIG=$2
+
+DIR=$HOME/tmp/clusters/$NAME
+mkdir $DIR
+cp $CONFIG $DIR/admin.kubeconfig
+
+cat << EOF > $DIR/.envrc
+export KUBECONFIG=\$(expand_path .)/admin.kubeconfig
+EOF
+
+direnv allow $DIR/.envrc
+
+echo created $DIR

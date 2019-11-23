@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# This script is a kubectl/oc plugin that will start namespace deletion,
+# watch the namespace conditions for resources blocking on finalizers,
+# and remove those finalizers from the blocking resources
+
+# TODO: Does not yet work against core resource types.  The regex doesn't get them.
+
+NAMESPACE=$1
+if ! oc get ns ${NAMESPACE} &>/dev/null; then
+    echo "namespace ${NAMESPACE} not found"
+    exit 1
+fi
+(oc delete ns ${NAMESPACE} &>/dev/null) &
+while oc get ns ${NAMESPACE} &>/dev/null; do
+    sleep 1
+    MSG=$(oc get ns ${NAMESPACE} -ojson | jq '.status.conditions[] | select(.reason == "SomeResourcesRemain") | .message')
+    for RESOURCETYPE in $(echo ${MSG} | egrep -o -E "(([a-zA-Z](-?[a-zA-Z0-9])*)\.)+[a-zA-Z]{2,}"); do
+        for RESOURCE in $(oc get ${RESOURCETYPE} -n ${NAMESPACE} -oname); do
+            echo "removing finalizer on ${RESOURCE}"
+            oc patch -n ${NAMESPACE} ${RESOURCE} --type merge -p '{"metadata":{"finalizers": []}}' >/dev/null
+        done
+    done
+done
+wait
+echo "namespace ${NAMESPACE} nuked"

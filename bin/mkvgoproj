@@ -3,25 +3,24 @@ set -e
 set -u
 set -o pipefail
 
-PROJECT_NAME="${1:-}"
-FORK="${2:-}"
-PKG="${3:-}"
+UPSTREAM="${1:-}"
+REPO_NAME="${2:-}"
+PROJECT_NAME="${3:-}"
 GO_VERSION="${4:-}"
 
 function usage_and_exit {
-  echo "usage:  mkgoproj <name> <fork> <pkg> <go version>"
+  echo "usage:  mkgoproj <upstream> <repo name> <project name> <go version>"
   exit 1
 }
 
+[[ -z "$UPSTREAM" ]] && usage_and_exit
 [[ -z "$PROJECT_NAME" ]] && usage_and_exit
 [[ -z "$GO_VERSION" ]] && usage_and_exit
-[[ -z "$FORK" ]] && usage_and_exit
-[[ -z "$PKG" ]] && usage_and_exit
 
 GO_DIR=$HOME/.go/$GO_VERSION
 TEMPLATE_DIR="$HOME/dotfiles/projects/$PROJECT_NAME"
-PROJECT_DIR="$GOPATH"
-CLONE_DIR="$PROJECT_DIR/src/${PKG}"
+PROJECT_DIR=$HOME/Projects/$PROJECT_NAME
+CLONE_DIR="$PROJECT_DIR"
 
 if [ ! -d $GO_DIR ]; then
   echo "Go directory not found at $GO_DIR"
@@ -33,32 +32,29 @@ if [ ! -d $TEMPLATE_DIR ]; then
   echo "created $TEMPLATE_DIR"
 fi
 
-if [ ! -d $PROJECT_DIR ]; then
-  mkdir -p $PROJECT_DIR
-  echo "created $PROJECT_DIR"
-fi
-
 if [ ! -f $TEMPLATE_DIR/envrc ]; then
 cat << EOF > $TEMPLATE_DIR/envrc
 source \$HOME/dotfiles/projects/utils.sh
 
-dotfiles::direnv::setup_gopath "$GO_VERSION"
+dotfiles::direnv::setup_vgopath "$GO_VERSION"
 EOF
 echo "created $TEMPLATE_DIR/envrc"
 fi
+
+if [ ! -f $CLONE_DIR ]; then
+  git clone "git@github.com:ironcladlou/${REPO_NAME}.git" "${CLONE_DIR}"
+  pushd "${CLONE_DIR}" >/dev/null
+  git remote add upstream "git@github.com:${UPSTREAM}/${REPO_NAME}.git"
+  git fetch upstream
+  popd >/dev/null
+fi
+
 
 ln -sf $TEMPLATE_DIR/envrc $PROJECT_DIR/.envrc
 pushd $PROJECT_DIR >/dev/null
 direnv allow
 popd >/dev/null
 
-if [ ! -f $CLONE_DIR ]; then
-  git clone "git@github.com:ironcladlou/${PROJECT_NAME}.git" "${CLONE_DIR}"
-  pushd "${CLONE_DIR}" >/dev/null
-  git remote add upstream "git@github.com:${FORK}/${PROJECT_NAME}.git"
-  git fetch upstream
-  popd >/dev/null
-fi
 
 if [ ! -d "$TEMPLATE_DIR/vscode" ]; then
 mkdir "$TEMPLATE_DIR/vscode"
@@ -68,8 +64,6 @@ cat << EOF > $TEMPLATE_DIR/vscode/settings.json
   },
   "go.testTimeout": "5s",
   "go.goroot": "$GO_DIR",
-  "go.toolsGopath": "$HOME/.go/.vscode-tools/$GO_VERSION",
-  "go.gopath": "$PROJECT_DIR",
   "go.alternateTools": {
     "go": "$GO_DIR/bin/go"
   },
@@ -91,7 +85,6 @@ cat << EOF > $TEMPLATE_DIR/vscode/tasks.json
             "options": {
                 "env": {
                     "GOROOT": "$GO_DIR",
-                    "GOPATH": "$PROJECT_DIR"
                 }
             },
             "group": {

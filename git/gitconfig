@@ -22,3 +22,12 @@
 	branch = auto
 	diff = auto
 	status = auto
+[filter "lfs"]
+	process = git-lfs filter-process
+	required = true
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+[http]
+	cookiefile = /Users/dmace/.gitcookies
+[credential]
+	helper = manager

@@ -1,0 +1,37 @@
+#!/bin/bash
+set -uo pipefail
+
+function usage() {
+  echo "usage: cleanup-aws-cluster <name> <uuid>"
+  exit 1
+}
+
+NAME="${1:=}"
+if [ -z "$NAME" ]; then usage; fi
+
+UUID="${2:=}"
+if [ -z "$UUID" ]; then usage; fi
+
+REGION="$(aws configure get region)"
+
+DIR="$(mktemp -d)"
+
+cat << EOF > ${DIR}/metadata.json
+{
+  "clusterName": "${NAME}",
+  "aws": {
+    "region": "${REGION}",
+    "identifier": [
+      {
+        "openshiftClusterID": "${UUID}"
+      },
+      {
+        "kubernetes.io/cluster/${NAME}": "owned"
+      }
+    ]
+  }
+}
+EOF
+
+echo "Cleaning up cluster ${NAME}=${UUID}"
+openshift-install destroy cluster --log-level debug --dir "${DIR}"

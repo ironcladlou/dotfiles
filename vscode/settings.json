@@ -12,14 +12,44 @@
   "editor.mouseWheelZoom": false,
   "explorer.autoReveal": false,
   // Go stuff
-  "go.buildOnSave": "off",
-  "go.lintOnSave": "off",
-  "go.vetOnSave": "off",
-  "go.buildFlags": [],
-  "go.lintFlags": [],
-  "go.vetFlags": ["-shadow", "-shadowstrict"],
-  "go.formatTool": "goimports",
-  "go.useCodeSnippetsOnFunctionSuggest": false,
+  // "go.buildOnSave": "off",
+  // "go.lintOnSave": "off",
+  // "go.vetOnSave": "off",
+  // "go.buildFlags": [],
+  // "go.lintFlags": [],
+  // "go.vetFlags": ["-shadow", "-shadowstrict"],
+  // "go.alternateTools": {
+  //   "gopls": "/Users/dmace/go/bin/gopls"
+  // },
+  // "go.useLanguageServer": true,
+  // "[go]": {
+  //     "editor.snippetSuggestions": "none",
+  //     "editor.formatOnSave": true,
+  //     "editor.codeActionsOnSave": {
+  //         "source.organizeImports": true
+  //     }
+  // },
+  // "gopls": {
+  //     "usePlaceholders": true, // add parameter placeholders when completing a function
+  //     "wantCompletionDocumentation": true // for documentation in completion items
+  // },
+  // "go.languageServerExperimentalFeatures": {
+  //   "format": true,
+  //   "autoComplete": true,
+  //   "rename": true,
+  //   "goToDefinition": true,
+  //   "hover": true,
+  //   "signatureHelp": true,
+  //   "goToTypeDefinition": true,
+  //   "goToImplementation": true,
+  //   "documentSymbols": true,
+  //   "workspaceSymbols": true,
+  //   "findReferences": true,
+  //   "diagnostics": true,
+  //   "documentLink": false
+  // },
+  "files.eol": "\n", // formatting only supports LF line endings
+
   "workbench.activityBar.visible": false,
   "window.zoomLevel": 0,
   "workbench.colorTheme": "Monokai Dark Soda",
@@ -39,5 +69,10 @@
   // Show fullpath or relative path in status bar.
   "ActiveFileInStatusBar.fullpath": false,
   "breadcrumbs.enabled": false,
-  "extensions.ignoreRecommendations": false,
+  "extensions.ignoreRecommendations": true,
+  "workbench.editor.showTabs": true,
+  "git.autofetch": true,
+  "search.quickOpen.includeHistory": false,
+  "workbench.useExperimentalGridLayout": false,
+  "go.goroot": "/Users/dmace/.go/1.17.3"
 }

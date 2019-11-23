@@ -1,0 +1,76 @@
+#!/usr/bin/env ruby
+
+require 'json'
+
+def names(list)
+  list.map{|o| o["metadata"]["name"]}
+end
+
+def is_named(obj, name)
+  namespace, name = name.split('/')
+  obj["metadata"]["namespace"] == namespace && obj["metadata"]["name"].start_with?(name)
+end
+
+def load_resource_list(file)
+  JSON.load(File.read("#{file}"))["items"]
+end
+
+def has_label(obj, key, value)
+  obj["metadata"]["labels"].each do |k, v|
+    return true if k == key and v == value
+  end
+  return false
+end
+
+pods = load_resource_list("pods.json")
+nodes = load_resource_list("nodes.json")
+endpoints = load_resource_list("endpoints.json")
+services = load_resource_list("services.json")
+
+master_nodes = nodes.select{|node| node["metadata"]["labels"].include?("node-role.kubernetes.io/master")}
+master_pods = pods.select{|pod| names(master_nodes).include?(pod["spec"]["nodeName"])}
+sdn_pods = pods.select{|pod| is_named(pod, "openshift-sdn/sdn-") && has_label(pod, "app", "sdn")}
+auth_operator_pods = pods.select{|pod| is_named(pod, "openshift-authentication-operator/authentication-operator")}
+router_endpoints = endpoints.select{|ep| is_named(ep, "openshift-ingress/router-default")}
+
+router_service = services.select{|service| is_named(service, "openshift-ingress/router-default")}[0]
+# On GCP and Azure, an IP will be present.
+router_service_ip = router_service["status"]["loadBalancer"]["ingress"][0]["ip"]
+# On AWS, a hostname is used.
+router_service_hostname = router_service["status"]["loadBalancer"]["ingress"][0]["hostname"]
+
+# Node names mapped to their iptables dumps.
+iptables_by_node = Hash.new {|hash, key| hash[key] = [] }
+sdn_pods.each do |pod|
+  iptables_by_node[pod['spec']['nodeName']] = File.read("network/iptables-save-#{pod['metadata']['name']}")
+end
+
+# Nodes mapped to router IPs.
+node_router_ips = Hash.new {|hash, key| hash[key] = [] }
+router_endpoints.each do |endpoint|
+  endpoint["subsets"].each do |subset|
+    subset["addresses"].each do |addr|
+      node_router_ips[addr["nodeName"]] << addr["ip"]
+    end
+  end
+end
+
+# If the default ingresscontroller LB service has an IP, all nodes should have
+# iptables rules which keep traffic destined for the ingress IP in-cluster
+# (except on AWS where this rule is not implemented).
+if router_service_ip
+  iptables_by_node.each do |node_name, iptables|
+    # If the rule is missing, any pod on the node trying to use a Route
+    # or Ingress could have problems.
+    next unless iptables.lines.grep(/#{router_service_ip}/).empty?
+    puts "node #{node_name} is missing iptables rule for #{router_service_ip}"
+
+    # If the authentication operator is on a node which has inconsistent
+    # iptables rules, the auth operator's self route check can fail.
+    auth_operator_pods.each do |pod|
+      if pod["spec"]["nodeName"] == node_name
+        puts "↳ pod #{pod['metadata']['name']} is on this node"
+      end
+    end
+  end
+end
