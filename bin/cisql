@@ -1,0 +1,55 @@
+#!/usr/bin/env ruby
+
+require "sqlite3"
+require "json"
+require "optparse"
+
+force = false
+
+opts = {}
+OptionParser.new do |parser|
+  parser.on('-f', '--force') do
+    force = true
+  end
+end.parse!
+
+if File.exist?("resources.db")
+  raise "resources.db already exists" unless force
+  if force
+    "removed existing resources.db"
+    `rm resources.db`
+  end
+end
+
+# Open a database
+db = SQLite3::Database.new "resources.db"
+
+names = [
+  "events",
+  "clusteroperators",
+  "pods",
+  "nodes",
+  "deployments"
+]
+
+names.each do |name|
+  unless File.exist?("#{name}.json")
+    puts "WARNING: couldn't find #{name}.json"
+    next
+  end
+  rows = db.execute <<-SQL
+    create table #{name} (
+      uid varchar,
+      namespace varchar,
+      name varchar,
+      data json
+    );
+  SQL
+  objects = JSON.load(File.read("#{name}.json"))["items"]
+  
+  objects.each do |object|
+    db.execute "insert into #{name} values ( ?, ?, ?, ? )", object['metadata']['uid'], object['metadata']['namespace'], object['metadata']['name'], JSON.dump(object)
+  end
+
+  puts "wrote #{objects.length} records to #{name}"
+end

@@ -1,0 +1,170 @@
+#!/usr/bin/env ruby
+
+require 'uri'
+require 'optparse'
+require 'fileutils'
+require 'json'
+require 'open-uri'
+require 'net/http'
+
+#get a $name for the run
+
+#extract tar to temporary directory
+
+#docker run --rm -p 29000-29050:9090/tcp -v $PWD:/prometheus --label app=prometheus --label name=$name prom/prometheus
+
+#docker ps -q -f label=app=prometheus
+
+#for each container id...
+
+#docker port $id
+
+#.*\:(\d*)
+
+def ensure_prom(data_name, cache_dir)
+  name = "prometheus-#{data_name}"
+
+  container_id = `docker ps -q -f label=ciprom.name=#{name}`.chomp
+  unless container_id.empty?
+    puts "found existing prometheus container #{container_id}"
+    return
+  end
+  puts "docker ps returned #{$?.exitstatus}; container_id='#{container_id}'"
+  
+  prom_tar = `find #{cache_dir} -name prometheus.tar`.chomp
+  raise "no prometheus.tar found" unless File.exist?(prom_tar)
+  
+  prom_dir = File.join(File.dirname(prom_tar), "ciprom")
+  if Dir.exist?(prom_dir)
+    FileUtils.rm_rf(prom_dir)
+    puts "removed old prometheus directory #{prom_dir}"
+  end
+  
+  `mkdir #{prom_dir}` unless Dir.exist?(prom_dir)
+  `tar xf #{prom_tar} -C #{prom_dir}`
+  puts "extracted prometheus data to #{prom_dir}"
+  
+  cmd = "docker run --rm -d -p 29000-29050:9090/tcp -v #{prom_dir}:/prometheus --label ciprom=true --label ciprom.component=prometheus --label ciprom.name=#{name} prom/prometheus --storage.tsdb.max-block-duration=2h "
+  container_id = `#{cmd}`.chomp
+  puts "started new prometheus container #{container_id}"
+end
+
+def grafana_post(path, body)
+  uri = URI.parse("http://localhost:3000")
+  http = Net::HTTP.new(uri.host, uri.port)
+  header = {'Content-Type': 'application/json', 'Accept': 'application/json'}
+  request = Net::HTTP::Post.new(URI.encode("http://localhost:3000#{path}"), header)
+  request.body = body
+  return http.request(request)
+end
+
+def grafana_get(path)
+  uri = URI.parse("http://localhost:3000")
+  http = Net::HTTP.new(uri.host, uri.port)
+  header = {'Content-Type': 'application/json', 'Accept': 'application/json'}
+  request = Net::HTTP::Get.new(URI.encode("http://localhost:3000#{path}"), header)
+  return http.request(request)
+end
+
+in_file = ""
+in_urls = []
+OptionParser.new do |parser|
+  parser.on('-f', '--file=NAME') do |file|
+    in_file = file
+  end
+  parser.on("--urls x,y,z", "--urls https://prow.ci.openshift.org/a,https://prow.ci.openshift.org/b") do |urls|
+    in_urls = urls
+  end
+end.parse!
+cmd = ARGV.pop
+
+urls = []
+if File.exist?(in_file)
+  File.open(in_file).each do |line|
+    next if line.start_with?("#")
+    next if line.chomp.empty?
+    urls.push(line.chomp)
+  end
+end
+urls.push(in_urls) unless in_urls.empty?
+
+urls.each do |url|
+  puts `cidl --quiet #{url}`
+  # todo: cidl should spit out paths and data like name
+  path = url.split("/")[5..-1].join("/")
+  name = [path.split("/")[-2..-1].join("_")].join("/").chomp
+  cache_dir = "#{ENV['HOME']}/ci-runs/.cache/#{name}"
+  unless Dir.exist?(cache_dir)
+    raise "couldn't find cache dir #{cache_dir} for #{url}"
+  end
+  ensure_prom(name, cache_dir)
+end
+
+grafana_id = `docker ps -q -f label=ciprom.component=grafana`.chomp
+if grafana_id.empty?
+  puts "starting grafana"
+  cmd = "docker run --rm -d --label ciprom=true --label ciprom.component=grafana -p 3000:3000 -v $HOME/ci-runs/grafana.ini:/usr/share/grafana/conf/custom.ini grafana/grafana --config /usr/share/grafana/conf/custom.ini"
+  grafana_id = `#{cmd}`.chomp
+  puts "started new grafana container #{grafana_id}"
+else
+  puts "found existing grafana container #{grafana_id}"
+end
+
+loop do
+  begin
+    response = grafana_get("/api/health")
+    break if response.code == "200"
+  rescue
+  end
+  puts "waiting for grafana api to report healty..."
+  sleep 1
+end
+
+prom_containers = `docker ps -q -f label=ciprom.component=prometheus`.split("\n").reject(&:empty?)
+prom_containers.each do |id|
+  status = JSON.load(`docker inspect #{id}`)[0]
+  name = status['Config']['Labels']['ciprom.name']
+  port = status['NetworkSettings']['Ports']['9090/tcp'][0]['HostPort']
+  url = "http://localhost:#{port}"
+  data = {
+    "name": "#{name}",
+    "type": "prometheus",
+    "url": url,
+    "access": "browser",
+    "basicAuth": false,
+  }
+  begin
+    response = grafana_post("/api/datasources", data.to_json)
+  rescue => e
+    puts "failed to add prometheus #{name} to grafana: #{e}"
+    break
+  else
+    unless ["200", "409"].include?(response.code)
+      puts "failed to add prometheus #{name} to grafana: #{response.code} #{response.message} from prometheus:\n#{response.body()}"
+      break
+    end
+  end
+  puts "added prometheus #{name} to grafana at #{url}"
+end
+
+dashboards = ["https://grafana.com/api/dashboards/3070/revisions/3/download"]
+dashboards.each do |url|
+  dash_json = JSON.load(open(url).read)
+  data = {
+    "dashboard": dash_json,
+    "folderId": 0,
+    "overwrite": true,
+  }
+  begin
+    response = grafana_post("/api/dashboards/db", data.to_json)
+  rescue => e
+    puts "failed to add dashboard #{dash} to grafana: #{e}"
+    break
+  else
+    unless ["200", "409"].include?(response.code)
+      puts "failed to add dashboard #{dash} to grafana: #{response.code} #{response.message} from prometheus:\n#{response.body()}"
+      break
+    end
+  end
+  puts "added dashboard to grafana: #{url}"
+end
