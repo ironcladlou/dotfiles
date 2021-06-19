@@ -1,0 +1,5 @@
+if [ -t 1 ] && [ -t 0 ]; then 
+    open -a Visual\ Studio\ Code.app "$@"
+else 
+    open -a Visual\ Studio\ Code.app -f
+fi

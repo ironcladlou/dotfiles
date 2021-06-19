@@ -1,0 +1,5 @@
+export KUBECONFIG=$(find $HOME/.kube/configs -name '*.kubeconfig' | fzf)
+tmux setenv -g TMUX_KUBECONFIG_$(tmux display -p "#D" | tr -d %) $KUBECONFIG
+tmux refresh-client -S
+
+#export PATH=$PATH:$(realpath $(dirname $KUBECONFIG)/../bin)

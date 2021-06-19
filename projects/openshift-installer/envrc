@@ -1,6 +1,0 @@
-source $HOME/dotfiles/projects/utils.sh
-
-dotfiles::direnv::setup_gopath "1.10.3"
-
-export PATH="$PATH:$(expand_path .)/bin"
-

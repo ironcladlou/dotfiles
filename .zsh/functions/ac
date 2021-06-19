@@ -1,0 +1,5 @@
+export AWS_SHARED_CREDENTIALS_FILE=$(find $HOME/.aws/creds -name '*.creds' | fzf)
+tmux setenv -g TMUX_AWS_SHARED_CREDENTIALS_FILE_$(tmux display -p "#D" | tr -d %) $AWS_SHARED_CREDENTIALS_FILE
+tmux refresh-client -S
+
+#export PATH=$PATH:$(realpath $(dirname $KUBECONFIG)/../bin)

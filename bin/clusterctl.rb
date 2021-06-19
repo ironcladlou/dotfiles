@@ -131,7 +131,59 @@ networking:
   type: OpenshiftSDN
 platform:
   aws:
-    region: us-east-2
+    region: us-east-1
+pullSecret: '%{pull_secret}'
+sshKey: '%{ssh_key_contents}'
+EOF
+
+$templates[:hypershift_aws] = <<EOF
+apiVersion: v1
+baseDomain: dmace.hypershift.devcluster.openshift.com
+clusterID: %{cluster_id}
+machines:
+- name: master
+  replicas: 3
+- name: worker
+  replicas: 3
+metadata:
+  name: %{cluster_name}
+networking:
+  clusterNetworks:
+  - cidr: 10.128.0.0/14
+    hostSubnetLength: 9
+  machineCIDR: 10.0.0.0/16
+  serviceCIDR: 172.30.0.0/16
+  type: OpenshiftSDN
+platform:
+  aws:
+    region: us-east-1
+    type: m4.xlarge
+pullSecret: '%{pull_secret}'
+sshKey: '%{ssh_key_contents}'
+EOF
+
+$templates[:hypershift_ci_root] = <<EOF
+apiVersion: v1
+baseDomain: ci.hypershift.devcluster.openshift.com
+clusterID: %{cluster_id}
+machines:
+- name: master
+  replicas: 3
+- name: worker
+  replicas: 3
+metadata:
+  name: %{cluster_name}
+networking:
+  clusterNetworks:
+  - cidr: 10.128.0.0/14
+    hostSubnetLength: 9
+  machineCIDR: 10.0.0.0/16
+  serviceCIDR: 172.30.0.0/16
+  type: OpenshiftSDN
+platform:
+  aws:
+    region: us-east-1
+    type: m4.xlarge
 pullSecret: '%{pull_secret}'
 sshKey: '%{ssh_key_contents}'
 EOF
@@ -183,14 +235,26 @@ export KUBECONFIG=$PWD/auth/kubeconfig
 PATH_add bin
 EOF
 
+def load_cluster_meta(dir)
+  cluster_dir = File.expand_path(dir)
+  raise "no cluster found at #{dir}" unless Dir.exist?(cluster_dir) 
+
+  meta_file = File.join(cluster_dir, "metadata.yaml")
+  raise "no cluster metadata found at #{meta_file}" unless File.exist?(meta_file) 
+  
+  return YAML.load(File.read(meta_file))
+end
+
 def get_clients(version_url, version, cluster_dir)
   cluster_bin = File.join(cluster_dir, "bin")
   Dir.mkdir(cluster_bin)
 
+  cache_dir = File.join(Dir.tmpdir, "clusterctl")
+  Dir.mkdir(cache_dir) unless Dir.exist?(cache_dir)
+
   if version_url
     release = `curl #{version_url}/release.txt 2>&1 | grep Version: | awk '{ print $2}'`.chomp
     clients = ["openshift-install-mac-#{release}.tar.gz", "openshift-client-mac-#{release}.tar.gz"]
-    cache_dir = File.join(Dir.tmpdir, "clusterctl")
     clients.each do |client|
       archive = File.join(cache_dir, client)
       unless File.exist?(archive)
@@ -207,7 +271,6 @@ def get_clients(version_url, version, cluster_dir)
       stream = "latest-#{version}"
       release = `curl https://mirror.openshift.com/pub/openshift-v4/clients/ocp-dev-preview/#{stream}/release.txt 2>&1 | grep Version: | awk '{ print $2}'`.chomp
       clients = ["openshift-install-mac-#{release}.tar.gz", "openshift-client-mac-#{release}.tar.gz"]
-      cache_dir = File.join(Dir.tmpdir, "clusterctl")
       clients.each do |client|
         archive = File.join(cache_dir, client)
         unless File.exist?(archive)
@@ -218,7 +281,6 @@ def get_clients(version_url, version, cluster_dir)
       end
     else
       clients = ["openshift-install-mac-#{release}.tar.gz", "openshift-client-mac-#{release}.tar.gz"]
-      cache_dir = File.join(Dir.tmpdir, "clusterctl")
       clients.each do |client|
         archive = File.join(cache_dir, client)
         unless File.exist?(archive)
@@ -235,7 +297,7 @@ def prepare_cluster(opts, platform_meta={})
   uuid = SecureRandom.uuid
   meta = {
     :cluster_id => uuid,
-    :cluster_name => "#{ENV['USER']}-#{uuid[0..3]}",
+    :cluster_name => opts.fetch(:cluster_name),
     :platform => opts.fetch(:platform),
     :image_override => opts.fetch(:image_override, ""),
     :docker_config => opts.fetch(:docker_config, "#{ENV['HOME']}/.docker/config-installer.json"),
@@ -301,6 +363,9 @@ def create(opts, platform_meta)
   command = env.push(args).join(" ")
   puts "executing: #{command}"
   system(command, out: STDOUT)
+
+  puts "installing kubeconfig"
+  install_kubeconfig(meta[:cluster_name])
 end
 
 def manifests(opts, platform_meta)
@@ -343,14 +408,15 @@ def prepare(opts, platform_meta)
 end
 
 def delete(opts)
-  cluster_dir = File.expand_path(opts[:cluster_name])
-  unless Dir.exist?(cluster_dir)
-    puts "no cluster found at #{cluster_dir}"
-    return
-  end
+  cluster_dir = opts[:cluster_name]
+  meta = load_cluster_meta(cluster_dir)
 
-  meta_file = File.join(cluster_dir, "metadata.yaml")
-  meta = YAML.load(File.read(meta_file))
+  puts "uninstalling kubeconfig"
+  begin
+    uninstall_kubeconfig(opts)
+  rescue => error
+    puts "couldn't uninstall kubeconfig: #{error}"
+  end
 
   installer = File.join(cluster_dir, "bin", "openshift-install")
 
@@ -375,8 +441,7 @@ def delete(opts)
   command = env.push(args).join(" ")
   puts "executing: #{command}"
   system(command, out: STDOUT)
-  
-  # do delete
+
   trash_dir = File.join(Dir.tmpdir(), File.basename(cluster_dir))
   FileUtils.mv(cluster_dir, trash_dir)
   puts "moved cluster #{meta[:cluster_name]} to trash: #{trash_dir}"
@@ -398,6 +463,58 @@ def get_platform_meta(opts)
     # echo "created new credentials at $sp_file"
   end
   return meta
+end
+
+def install_kubeconfig(cluster_name)
+  cluster_dir = File.expand_path(cluster_name)
+  unless Dir.exist?(cluster_dir)
+    puts "no cluster found at #{cluster_dir}"
+    return
+  end
+
+  kubeconfig = exported_cluster_kubeconfig(cluster_kubeconfig(cluster_dir))
+  cluster_name = kubeconfig["clusters"][0]["name"]
+  
+  out_file = File.join(ENV["HOME"], ".kube", "configs", "#{cluster_name}.kubeconfig")
+  File.write(out_file, YAML.dump(kubeconfig))
+  puts "wrote #{out_file}"
+end
+
+def uninstall_kubeconfig(opts)
+  cluster_dir = File.expand_path(opts[:cluster_name])
+  unless Dir.exist?(cluster_dir)
+    puts "no cluster found at #{cluster_dir}"
+    return
+  end
+
+  kubeconfig = exported_cluster_kubeconfig(cluster_kubeconfig(cluster_dir))
+  cluster_name = kubeconfig["clusters"][0]["name"]
+  
+  out_file = File.join(ENV["HOME"], ".kube", "configs", "#{cluster_name}.kubeconfig")
+  if File.exist?(out_file)
+    File.delete(out_file)
+    puts "uninstalled kubeconfig #{out_file}"
+  end
+end
+
+def cluster_kubeconfig(cluster_dir)
+  kubeconfig_file = File.join(cluster_dir, "auth/kubeconfig")
+  return YAML.load(File.read(kubeconfig_file))
+end
+
+def exported_cluster_kubeconfig(kubeconfig)
+  copied = Marshal.load(Marshal.dump(kubeconfig))
+  cluster_name = kubeconfig["clusters"][0]["name"]
+  cluster_name = "openshift-dev-#{cluster_name}"
+  copied["clusters"][0]["name"] = cluster_name
+  user_name = kubeconfig["users"][0]["name"]
+  user_name = "#{cluster_name}-admin"
+  copied["users"][0]["name"] = user_name
+  copied["contexts"][0]["name"] = cluster_name
+  copied["contexts"][0]["context"]["cluster"] = cluster_name
+  copied["contexts"][0]["context"]["user"] = user_name
+  copied["current-context"] = cluster_name
+  return copied
 end
 
 opts = {}
@@ -436,6 +553,9 @@ command = ARGV.pop.gsub("-","_").to_sym
 
 case command
 when :create
+  unless opts[:cluster_name]
+    opts[:cluster_name] = "#{ENV['USER']}-#{SecureRandom.uuid[0..3]}"
+  end
   create(opts, get_platform_meta(opts))
 when :manifests
   manifests(opts, get_platform_meta(opts))
@@ -447,6 +567,8 @@ when :delete
   delete(opts)
 when :nuke
   `ls -d */ | cut -f1 -d'/'`.chomp.each_line{|name| delete({:cluster_name => name})}
+when :install_kubeconfig
+  install_kubeconfig(opts[:cluster_name])
 else
-  puts "unrecognized command"
+  puts "unrecognized command #{command}"
 end
