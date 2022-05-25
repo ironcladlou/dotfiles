@@ -74,4 +74,5 @@
   "git.autofetch": true,
   "search.quickOpen.includeHistory": false,
   "workbench.useExperimentalGridLayout": false,
+  "go.goroot": "/Users/dmace/.go/1.17.3"
 }

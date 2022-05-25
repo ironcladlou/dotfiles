@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# usage: explaindrop <component>
+#
+# Output is two YAML docs: relabelling rules, then object labels.
+# Feed the output into https://relabeler.promlabs.com/
+#
+# Example:
+#
+#     explaindrop openshift-apiserver
+
+SM="$1"
+
+oc get -n openshift-user-workload-monitoring secrets/prometheus-user-workload -o go-template='{{ index .data "prometheus.yaml.gz" | base64decode }}' | gunzip | yq ".scrape_configs[] | select(.job_name|match(\"${SM}\")) | .relabel_configs"
+echo ---
+oc exec -n openshift-user-workload-monitoring -c prometheus pods/prometheus-user-workload-1 -- curl -s "http://localhost:9090/api/v1/targets?state=dropped" | yq -o yaml -P ".data.droppedTargets[].discoveredLabels | select(.job|match(\"${SM}\")) | select(.__meta_kubernetes_endpoints_name==\"${SM}\")"

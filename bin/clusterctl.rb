@@ -113,6 +113,33 @@ EOF
 
 $templates[:aws] = <<EOF
 apiVersion: v1
+metadata:
+  name: %{cluster_name}
+baseDomain: devcluster.openshift.com
+controlPlane:
+  name: master
+  replicas: 3
+compute:
+- name: worker
+  replicas: 3
+networking:
+  clusterNetworks:
+  - cidr: 10.128.0.0/14
+    hostSubnetLength: 9
+  machineCIDR: 10.0.0.0/16
+  serviceCIDR: 172.30.0.0/16
+  type: OpenshiftSDN
+platform:
+  aws:
+    region: us-east-1
+    defaultMachinePlatform:
+      type: m4.xlarge
+pullSecret: '%{pull_secret}'
+sshKey: '%{ssh_key_contents}'
+EOF
+
+$templates[:aws_4_9] = <<EOF
+apiVersion: v1
 baseDomain: devcluster.openshift.com
 clusterID: %{cluster_id}
 machines:
@@ -132,6 +159,7 @@ networking:
 platform:
   aws:
     region: us-east-1
+    type: m4.xlarge
 pullSecret: '%{pull_secret}'
 sshKey: '%{ssh_key_contents}'
 EOF
@@ -300,7 +328,7 @@ def prepare_cluster(opts, platform_meta={})
     :cluster_name => opts.fetch(:cluster_name),
     :platform => opts.fetch(:platform),
     :image_override => opts.fetch(:image_override, ""),
-    :docker_config => opts.fetch(:docker_config, "#{ENV['HOME']}/.docker/config-installer.json"),
+    :docker_config => opts.fetch(:docker_config, "#{ENV['HOME']}/.docker/hypershift.json"),
     :ssh_key => opts.fetch(:ssh_key, "#{ENV['HOME']}/.ssh/id_rsa.pub"),
     :version => opts.fetch(:version, "4.5"),
     :version_url => opts.fetch(:version_url, nil)
@@ -517,6 +545,26 @@ def exported_cluster_kubeconfig(kubeconfig)
   return copied
 end
 
+def setup_hypershift(opts)
+  cluster_dir = opts[:cluster_name]
+  meta = load_cluster_meta(cluster_dir)
+
+  kubeadmin_pass = File.read(File.join(cluster_dir, "auth/kubeadmin-password"))
+
+  system("oc patch configs.imageregistry.operator.openshift.io/cluster --patch '{\"spec\":{\"defaultRoute\":true}}' --type=merge")
+
+  sleep 5
+
+  registry_route = `oc get routes --namespace openshift-image-registry default-route -o jsonpath='{.spec.host}'`
+
+  system("oc login -u kubeadmin -p #{kubeadmin_pass}")
+  system("oc registry login --to=#{ENV['HOME']}/.docker/config.json --skip-check --registry #{registry_route}")
+  system("oc create clusterrolebinding authenticated-registry-viewer --clusterrole registry-viewer --group system:authenticated")
+  system("oc create clusterrolebinding unauthenticated-registry-viewer --clusterrole registry-viewer --group system:unauthenticated")
+  system("oc apply -f #{ENV['HOME']}/Projects/hypershift/examples/user-workload-monitoring/manifests/user-workload-monitoring-config.yaml")
+  system("aws s3api create-bucket --acl public-read --bucket dmace-hypershift-openshift-dev")
+end
+
 opts = {}
 OptionParser.new do |parser|
   # options for create,create-ignition-configs
@@ -562,6 +610,9 @@ when :manifests
 when :create_ignition_configs
   create_ignition_configs(opts, get_platform_meta(opts))
 when :prepare
+  unless opts[:cluster_name]
+    opts[:cluster_name] = "#{ENV['USER']}-#{SecureRandom.uuid[0..3]}"
+  end
   prepare(opts, get_platform_meta(opts))
 when :delete
   delete(opts)
@@ -569,6 +620,8 @@ when :nuke
   `ls -d */ | cut -f1 -d'/'`.chomp.each_line{|name| delete({:cluster_name => name})}
 when :install_kubeconfig
   install_kubeconfig(opts[:cluster_name])
+when :setup_hypershift
+  setup_hypershift(opts)
 else
   puts "unrecognized command #{command}"
 end

@@ -44,7 +44,8 @@ def ensure_prom(data_name, cache_dir)
   `tar xf #{prom_tar} -C #{prom_dir}`
   puts "extracted prometheus data to #{prom_dir}"
   
-  cmd = "docker run --rm -d -p 29000-29050:9090/tcp -v #{prom_dir}:/prometheus --label ciprom=true --label ciprom.component=prometheus --label ciprom.name=#{name} prom/prometheus --storage.tsdb.max-block-duration=2h "
+  cmd = "docker run --rm -d -p 29000-29050:9090/tcp -v #{prom_dir}:/prometheus --label ciprom=true --label ciprom.component=prometheus --label ciprom.name=#{name} prom/prometheus --storage.tsdb.max-block-duration=2h --config.file=/etc/prometheus/prometheus.yml"
+  puts cmd
   container_id = `#{cmd}`.chomp
   puts "started new prometheus container #{container_id}"
 end
@@ -88,12 +89,14 @@ if File.exist?(in_file)
 end
 urls.push(in_urls) unless in_urls.empty?
 
+raise "urls are required" if urls.empty?
+
 urls.each do |url|
   puts `cidl --quiet #{url}`
   # todo: cidl should spit out paths and data like name
   path = url.split("/")[5..-1].join("/")
   name = [path.split("/")[-2..-1].join("_")].join("/").chomp
-  cache_dir = "#{ENV['HOME']}/ci-runs/.cache/#{name}"
+  cache_dir = "#{ENV['HOME']}/ci-runs/#{name}"
   unless Dir.exist?(cache_dir)
     raise "couldn't find cache dir #{cache_dir} for #{url}"
   end

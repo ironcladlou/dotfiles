@@ -1,0 +1,11 @@
+#!/bin/bash
+
+NAMESPACE=$1
+NAME=$2
+
+oc get -n $NAMESPACE secrets/$NAME  --template='{{index .data "ca.crt" | base64decode }}' | /usr/local/opt/openssl@1.1/bin/openssl x509 -noout -text -in -
+oc get -n $NAMESPACE secrets/$NAME  --template='{{index .data "tls.crt" | base64decode }}' | /usr/local/opt/openssl@1.1/bin/openssl x509 -noout -text -in -
+
+
+
+

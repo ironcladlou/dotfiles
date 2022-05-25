@@ -1,0 +1,6 @@
+#!/bin/bash
+
+namespace=$1
+pod_name=$2
+
+echo -n $(oc get --namespace $namespace pods/$pod_name -o go-template --template '{{.spec.nodeName}}')
