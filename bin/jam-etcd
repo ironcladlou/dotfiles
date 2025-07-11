@@ -1,0 +1,7 @@
+#!/bin/bash
+
+choice=$(oc get --namespace openshift-etcd --selector etcd pods -o json | jq -r '.items[] | .spec.nodeName + " " + (.status.containerStatuses[] | select(.name=="etcd") | .containerID[8:])' | fzf)
+IFS=' ' read node container_id <<< "$choice"
+
+pid=$(oc debug --quiet nodes/$node -- chroot /host crictl inspect -o go-template --template '{{.info.pid}}' $container_id)
+oc debug --quiet nodes/$node -- chroot /host strace -Tfe inject=fdatasync:delay_enter=800000 -e trace=fdatasync -p $pid

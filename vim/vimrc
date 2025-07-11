@@ -1,0 +1,28 @@
+" Use spaces instead of tabs
+set expandtab
+
+" Set tab stop to 2 spaces
+set tabstop=2
+set shiftwidth=2
+
+" Optional: Set softtabstop for easier editing
+set softtabstop=2
+
+" Enable syntax highlighting
+syntax off
+
+" Disable line numbers in the gutter
+set nonumber
+" Disable relative line numbers in the gutter
+set norelativenumber
+" Show filename, flags, git branch (if Lua function exists), current line, column, virtual column, percentage in status bar
+" Show filename, flags, current line, column, virtual column, percentage in status bar
+set statusline=%<%f%=%l,%c
+" Always show the status bar
+set laststatus=2
+
+" Prevent the default mode/message line from showing
+set noshowmode
+
+set mouse=a
+

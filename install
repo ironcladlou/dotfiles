@@ -13,11 +13,13 @@ esac
 DOTFILES="$( cd "$( dirname "$0" )" && pwd )"
 
 ln -sf $DOTFILES/bin $HOME/bin
-ln -sf $DOTFILES/bash/bashrc $HOME/.bashrc
-ln -sf $DOTFILES/bash/bash_profile $HOME/.bash_profile
-ln -sf $DOTFILES/tmux/tmux.conf $HOME/.tmux.conf
+#ln -sf $DOTFILES/bash/bashrc $HOME/.bashrc
+#ln -sf $DOTFILES/bash/bash_profile $HOME/.bash_profile
+ln -sf $DOTFILES/.tmux.conf $HOME/.tmux.conf
 ln -sf $DOTFILES/git/gitconfig $HOME/.gitconfig
 ln -sf $DOTFILES/git/gitignore_global $HOME/.gitignore_global
 ln -sf $DOTFILES/git/tigrc $HOME/.tigrc
 ln -sf $DOTFILES/ruby/gemrc $HOME/.gemrc
 ln -sf $DOTFILES/vim/vimrc $HOME/.vimrc
+ln -sf $DOTFILES/zshrc $HOME/.zshrc
+ln -sf $DOTFILES/.zsh $HOME/.zsh

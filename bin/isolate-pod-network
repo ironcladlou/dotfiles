@@ -1,0 +1,7 @@
+#!/bin/bash
+
+namespace=$1
+pod=$2
+container=$3
+
+oc debug --quiet nodes/$(pod-node $namespace $pod) -- chroot /host nsenter -t $(container-pid $namespace $pod $container) -n tc qdisc add dev eth0 root netem loss 100%

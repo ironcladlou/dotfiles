@@ -1,0 +1,139 @@
+#!/usr/bin/env ruby
+
+require 'json'
+
+def name(obj)
+  "#{obj['metadata']['namespace']}/#{obj['metadata']['name']}"
+end
+
+def names(list)
+  list.map{|o| o["metadata"]["name"]}
+end
+
+def is_named(obj, name)
+  namespace, name = name.split('/')
+  obj["metadata"]["namespace"] == namespace && obj["metadata"]["name"].start_with?(name)
+end
+
+def load_resource_list(file)
+  JSON.load(File.read("#{file}"))["items"]
+end
+
+def has_label(obj, key, value)
+  obj["metadata"]["labels"].each do |k, v|
+    return true if k == key and v == value
+  end
+  return false
+end
+
+def iptables_file_for_sdn_pod(pod)
+  "network/iptables-save-#{pod['metadata']['name']}"
+end
+
+pods = load_resource_list("pods.json")
+nodes = load_resource_list("nodes.json")
+endpoints = load_resource_list("endpoints.json")
+services = load_resource_list("services.json")
+image_references = JSON.load(File.read("../release-latest/release-payload-latest/image-references"))
+
+master_nodes = nodes.select{|node| node["metadata"]["labels"].include?("node-role.kubernetes.io/master")}
+worker_nodes = nodes.select{|node| node["metadata"]["labels"].include?("node-role.kubernetes.io/worker")}
+master_pods = pods.select{|pod| names(master_nodes).include?(pod["spec"]["nodeName"])}
+sdn_pods = pods.select{|pod| is_named(pod, "openshift-sdn/sdn-") && has_label(pod, "app", "sdn")}
+auth_operator_pods = pods.select{|pod| is_named(pod, "openshift-authentication-operator/authentication-operator")}
+router_endpoints = endpoints.select{|ep| is_named(ep, "openshift-ingress/router-default")}
+
+router_service = services.select{|service| is_named(service, "openshift-ingress/router-default")}[0]
+# On GCP and Azure, an IP will be present.
+router_service_ip = router_service["status"]["loadBalancer"]["ingress"][0]["ip"]
+# On AWS, a hostname is used.
+router_service_hostname = router_service["status"]["loadBalancer"]["ingress"][0]["hostname"]
+
+# Node names mapped to their iptables dumps.
+iptables_by_node = Hash.new {|hash, key| hash[key] = [] }
+sdn_pods.each do |pod|
+  iptables_by_node[pod['spec']['nodeName']] = File.read(iptables_file_for_sdn_pod(pod))
+end
+
+# Nodes mapped to router IPs.
+node_router_ips = Hash.new {|hash, key| hash[key] = [] }
+router_endpoints.each do |endpoint|
+  endpoint["subsets"].each do |subset|
+    subset["addresses"].each do |addr|
+      node_router_ips[addr["nodeName"]] << addr["ip"]
+    end
+  end
+end
+
+# If any authentication operator pods are on master nodes, immediately flag them
+# as suspicious given the variety of problems we've observed with pod->ingress
+# connectivity from masters specifically.
+auth_operator_pods.each do |pod|
+  if names(master_nodes).include?(pod["spec"]["nodeName"])
+    puts "pod #{name(pod)} is scheduled to a master node"
+    sdn_pods.each do |sdn_pod|
+      if sdn_pod['spec']['nodeName'] == pod["spec"]["nodeName"]
+        puts "↳ iptables dump: #{iptables_file_for_sdn_pod(sdn_pod)}"
+      end
+    end
+  end
+end
+
+# If the default ingresscontroller LB service has an IP, all nodes should have
+# iptables rules which keep traffic destined for the ingress IP in-cluster
+# (except on AWS where this rule is not implemented).
+if router_service_ip
+  iptables_by_node.each do |node_name, iptables|
+    # If the rule is missing, any pod on the node trying to use a Route
+    # or Ingress could have problems.
+    next unless iptables.lines.grep(/#{router_service_ip}/).empty?
+    puts "node #{node_name} is missing iptables rule for #{router_service_ip}"
+
+    # If the authentication operator is on a node which has inconsistent
+    # iptables rules, the auth operator's self route check can fail.
+    auth_operator_pods.each do |pod|
+      if pod["spec"]["nodeName"] == node_name
+        puts "↳ pod #{pod['metadata']['name']} is on this node"
+      end
+    end
+  end
+end
+
+# Detect clusters which never fully came up. If nodes are missing, ingress
+# can't complete a rollout.
+if master_nodes.length != 3
+  puts "expected 3 master nodes, but only have #{master_nodes.length}"
+end
+if worker_nodes.length != 3
+  puts "expected 3 worker nodes, but only have #{worker_nodes.length}"
+end
+
+# {
+#   "name": "tests",
+#   "annotations": {
+#     "io.openshift.build.commit.id": "9b16f97a13a88695f114dbea8be98563a4444374",
+#     "io.openshift.build.commit.ref": "master",
+#     "io.openshift.build.source-location": "https://github.com/openshift/origin"
+#   },
+#   "from": {
+#     "kind": "DockerImage",
+#     "name": "registry.svc.ci.openshift.org/ci-op-g0m8l14b/stable@sha256:e5022a422dabc925ffd2aa55b6cd6a8fd1910b29a1ecfa0edb9a8520662b72d8"
+#   },
+#   "generation": null,
+#   "importPolicy": {},
+#   "referencePolicy": {
+#     "type": ""
+#   }
+# },
+"(registry\.svc\.ci\.openshift\.org)\/(.*)@(.*)"
+image_references["spec"]["tags"].each do |tag|
+  next unless tag["name"] == "tests"
+  pullspec = tag["from"]["name"]
+  m = pullspec.match /(registry\.svc\.ci\.openshift\.org)\/(.*)@(.*)/
+  registry = m[1]
+  repo = "ocp/4.3"
+  sha = m[3]
+  pullspec = "#{registry}/#{repo}@#{sha}"
+  puts "The publicly a"
+  puts "oc image info #{pullspec}"
+end

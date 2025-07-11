@@ -1,0 +1,9 @@
+#!/bin/bash
+
+namespace=$1
+pod_name=$2
+container_name=$3
+
+node_name=$(oc get --namespace $namespace pods/$pod_name -o go-template --template '{{.spec.nodeName}}')
+container_id=$(oc get --namespace $namespace pods/$pod_name -o json | jq -r ".status.containerStatuses[] | select(.name==\"$container_name\") | .containerID[8:]")
+echo -n $(oc debug --quiet nodes/$node_name -- chroot /host crictl inspect -o go-template --template '{{.info.pid}}' $container_id)

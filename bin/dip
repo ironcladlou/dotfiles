@@ -1,0 +1,352 @@
+#!/usr/bin/env ruby
+
+require 'json'
+require 'interval_tree'
+
+class Condition
+  include Comparable
+  attr :length
+  def initialize(from, to, loc)
+    @length = n
+  end
+  def succ
+    Xs.new(@length + 1)
+  end
+  def <=>(other)
+    @length <=> other.length
+  end
+end
+
+def name(obj)
+  ns = obj['metadata']['namespace']
+  if ns and ns.length > 0
+    return "#{ns}/#{obj['metadata']['name']}"
+  else
+    return "#{obj['metadata']['name']}"
+  end
+end
+
+def namespace(obj)
+  obj['metadata']['namespace']
+end
+
+def names(list)
+  list.map{|o| o["metadata"]["name"]}
+end
+
+def is_named(obj, name)
+  if name.include?("/")
+    namespace, name = name.split('/')
+    return obj["metadata"]["namespace"] == namespace && obj["metadata"]["name"].start_with?(name)
+  end
+  return obj["metadata"]["name"].start_with?(name)
+end
+
+def load_resource_list(file)
+  JSON.load(File.read("#{file}"))["items"]
+end
+
+def label(obj, key)
+  return "" unless obj["metadata"] and obj["metadata"]["labels"]
+  return obj["metadata"]["labels"][key]
+end
+
+def has_label(obj, key, value)
+  return false unless obj["metadata"] and obj["metadata"]["labels"]
+  obj["metadata"]["labels"].each do |k, v|
+    return true if k == key and v == value
+  end
+  return false
+end
+
+def has_label_like(obj, key, value)
+  return false unless obj["metadata"] and obj["metadata"]["labels"]
+  obj["metadata"]["labels"].each do |k, v|
+    return true if k == key and v.start_with?(value)
+  end
+  return false
+end
+
+def iptables_file_for_sdn_pod(pod)
+  "network/iptables-save-#{pod['metadata']['name']}"
+end
+
+def has_cond(obj, type, status)
+  obj["status"]["conditions"].each do |cond|
+    if cond["type"] == type and cond["status"] == status
+      return true
+    end
+  end
+  return false
+end
+
+def get_cond(obj, type)
+  obj["status"]["conditions"].each do |cond|
+    if cond["type"] == type
+      return cond
+    end
+  end
+  return nil
+end
+
+def pod_node(pod)
+  pod['spec']['nodeName']
+end
+
+class Detector
+  def load()
+    @pods = load_resource_list("pods.json")
+    @nodes = load_resource_list("nodes.json")
+    @endpoints = load_resource_list("endpoints.json")
+    @services = load_resource_list("services.json")
+    @operators = load_resource_list("clusteroperators.json")
+    #image_references = JSON.load(File.read("../release-latest/release-payload-latest/image-references"))
+
+    @master_nodes = @nodes.select{|node| node["metadata"]["labels"].include?("node-role.kubernetes.io/master")}
+    @worker_nodes = @nodes.select{|node| node["metadata"]["labels"].include?("node-role.kubernetes.io/worker")}
+    @master_pods = @pods.select{|pod| names(@master_nodes).include?(pod["spec"]["nodeName"])}
+    @sdn_pods = @pods.select{|pod| is_named(pod, "openshift-sdn/sdn-") && has_label(pod, "app", "sdn")}
+    @ovs_pods = @pods.select{|pod| is_named(pod, "openshift-sdn/ovs-") && has_label(pod, "app", "ovs")}
+    @auth_operator_pods = @pods.select{|pod| is_named(pod, "openshift-authentication-operator/authentication-operator")}
+    @router_endpoints = @endpoints.select{|ep| is_named(ep, "openshift-ingress/router-default")}
+    @dns_pods = @pods.select{|pod| pod["metadata"].include?("labels") && pod["metadata"]["labels"].include?("dns.operator.openshift.io/daemonset-dns")}
+
+    @router_service = @services.select{|service| is_named(service, "openshift-ingress/router-default")}[0]
+    # On GCP and Azure, an IP will be present.
+    #@router_service_ip = @router_service["status"]["loadBalancer"]["ingress"][0]["ip"]
+    # On AWS, a hostname is used.
+    #@router_service_hostname = @router_service["status"]["loadBalancer"]["ingress"][0]["hostname"]
+
+    # Node names mapped to their iptables dumps.
+    @iptables_by_node = Hash.new {|hash, key| hash[key] = [] }
+    @sdn_pods.each do |pod|
+      if File.exist?(iptables_file_for_sdn_pod(pod))
+        @iptables_by_node[pod['spec']['nodeName']] = File.read(iptables_file_for_sdn_pod(pod))
+      end
+    end
+
+    # Nodes mapped to router IPs.
+    @node_router_ips = Hash.new {|hash, key| hash[key] = [] }
+    @router_endpoints.each do |endpoint|
+      endpoint["subsets"].each do |subset|
+        subset["addresses"].each do |addr|
+          @node_router_ips[addr["nodeName"]] << addr["ip"]
+        end
+      end
+    end
+  end
+
+  def report_auth_scheduling()
+    # If any authentication operator pods are on master nodes, immediately flag them
+    # as suspicious given the variety of problems we've observed with pod->ingress
+    # connectivity from masters specifically.
+    @auth_operator_pods.each do |pod|
+      if names(@master_nodes).include?(pod["spec"]["nodeName"])
+        puts "pod #{name(pod)} is scheduled to a master node"
+        @sdn_pods.each do |sdn_pod|
+          if sdn_pod['spec']['nodeName'] == pod["spec"]["nodeName"]
+            puts "↳ iptables dump: #{iptables_file_for_sdn_pod(sdn_pod)}"
+          end
+        end
+      end
+    end
+  end
+
+  def report_iptables()
+    return unless @router_service_ip
+    # If the default ingresscontroller LB service has an IP, all nodes should have
+    # iptables rules which keep traffic destined for the ingress IP in-cluster
+    # (except on AWS where this rule is not implemented).
+    @iptables_by_node.each do |node_name, iptables|
+      # If the rule is missing, any pod on the node trying to use a Route
+      # or Ingress could have problems.
+      next unless iptables.lines.grep(/#{@router_service_ip}/).empty?
+      puts "node #{node_name} is missing iptables rule for #{router_service_ip}"
+
+      # If the authentication operator is on a node which has inconsistent
+      # iptables rules, the auth operator's self route check can fail.
+      @auth_operator_pods.each do |pod|
+        if pod["spec"]["nodeName"] == node_name
+          puts "↳ pod #{pod['metadata']['name']} is on this node"
+        end
+      end
+    end
+  end
+
+  def report_broken_nodes()
+    # Detect clusters which never fully came up. If nodes are missing, ingress
+    # can't complete a rollout.
+    if @master_nodes.length != 3
+      puts "expected 3 master nodes, but only have #{master_nodes.length}"
+    end
+    if @worker_nodes.length != 3
+      puts "expected 3 worker nodes, but only have #{worker_nodes.length}"
+    end
+  end
+
+  def report_image_refs()
+  # {
+  #   "name": "tests",
+  #   "annotations": {
+  #     "io.openshift.build.commit.id": "9b16f97a13a88695f114dbea8be98563a4444374",
+  #     "io.openshift.build.commit.ref": "master",
+  #     "io.openshift.build.source-location": "https://github.com/openshift/origin"
+  #   },
+  #   "from": {
+  #     "kind": "DockerImage",
+  #     "name": "registry.svc.ci.openshift.org/ci-op-g0m8l14b/stable@sha256:e5022a422dabc925ffd2aa55b6cd6a8fd1910b29a1ecfa0edb9a8520662b72d8"
+  #   },
+  #   "generation": null,
+  #   "importPolicy": {},
+  #   "referencePolicy": {
+  #     "type": ""
+  #   }
+  # },
+
+  # "(registry\.svc\.ci\.openshift\.org)\/(.*)@(.*)"
+  # image_references["spec"]["tags"].each do |tag|
+  #   next unless tag["name"] == "tests"
+  #   pullspec = tag["from"]["name"]
+  #   m = pullspec.match /(registry\.svc\.ci\.openshift\.org)\/(.*)@(.*)/
+  #   registry = m[1]
+  #   repo = "ocp/4.3"
+  #   sha = m[3]
+  #   pullspec = "#{registry}/#{repo}@#{sha}"
+  #   puts "oc image info #{pullspec}"
+  # end
+  end
+
+  def report_node_health()
+    @nodes.each do |node|
+      if not has_cond(node, "Ready", "True")
+        puts "node #{name(node)} is not ready"
+      end
+    end
+  end
+
+  def report_dns_pods()
+    @dns_pods.each do |pod|
+      if has_cond(pod, "Ready", "False")
+        node = pod["spec"]["nodeName"]
+        puts "DNS pod #{pod['metadata']['name']} on node #{node} is not ready"
+      end
+    end
+  end
+
+  def report_nodes()
+    puts "master nodes:"
+    @master_nodes.each do |node|
+      puts "#{name(node)} #{node['status']['addresses']}"
+    end
+    puts "worker nodes:"
+    @worker_nodes.each do |node|
+      puts "#{name(node)} #{node['status']['addresses']}"
+    end
+  end
+
+  def report_node_sdn()
+    @node_files = Hash.new {|hash, key| hash[key] = [] }
+    @nodes.each do |node|
+      puts name(node)
+      @sdn_pods.each do |pod|
+        if pod_node(pod) == name(node)
+          puts "  #{name(pod)}"
+        end
+      end
+      @ovs_pods.each do |pod|
+        if pod_node(pod) == name(node)
+          puts "  #{name(pod)}"
+        end
+      end
+    end
+  end
+
+  def report_pod_transitions()
+    ["Initialized", "Ready"].each do |cond|
+      @pods.each do |pod|
+        ready = get_cond(pod, cond)
+        if ready['status'] == "True"
+          puts "#{cond} #{ready['lastTransitionTime']} #{name(pod)}"
+        end
+      end
+    end
+  end
+
+  def report_router_nodes()
+    puts @node_router_ips
+  end
+
+  def print_conds(obj, *types)
+    status = []
+    types.each do |type|
+      cond = get_cond(obj, type)
+      status.push("#{cond['type']}=#{cond['status']}")
+    end
+    return status.join(',')
+  end
+
+  def report_etcd()
+    conds = ["Ready", "Initialized"]
+    kas_pods = @pods.select{|pod| has_label(pod, "app", "openshift-kube-apiserver")}
+    kas_pods.each do |pod|
+      puts "kas pod #{name(pod)} revision #{label(pod, 'revision')} node #{pod_node(pod)} #{print_conds(pod, 'Ready', 'Initialized')}"
+    end
+    oas_pods = @pods.select{|pod| has_label_like(pod, "app", "openshift-apiserver") and has_label(pod, "apiserver", "true")}
+    oas_pods.each do |pod|
+      puts "oas pod #{name(pod)} revision #{label(pod, 'revision')} node #{pod_node(pod)} #{print_conds(pod, 'Ready', 'Initialized')}"
+    end
+
+    installer_namespaces = ["openshift-etcd", "openshift-kube-apiserver", "openshift-apiserver"]
+    installer_namespaces.each do |ns|
+      pods = @pods.select{|pod| has_label(pod, "app", "installer") and namespace(pod) == ns}
+      pods.each do |pod|
+        puts "installer pod #{pod['metadata']['creationTimestamp']} #{name(pod)} node #{pod_node(pod)} #{print_conds(pod, 'Ready', 'Initialized')}"
+      end
+    end
+    
+  end
+
+  def report_operators()
+    bad_conditions = [
+      ["Degraded", "True"],
+      ["Available", "False"],
+      ["Progressing", "True"],
+    ]
+    @operators.each do |operator|
+      problem = false
+      bad_conditions.each do |cond|
+        if has_cond(operator, cond[0], cond[1])
+          problem = true
+        end
+      end
+      next unless problem
+
+      puts "#{name(operator)}"
+      puts operator["status"]["conditions"]
+    end
+  end
+end
+
+detector = Detector.new
+detector.load()
+
+reports = Detector.instance_methods.grep(/report_/)
+
+if ARGV.length == 0
+  reports.each do |report|
+    puts report.to_s.gsub("report_", "").gsub("_", "-")
+  end
+  exit 0
+end
+
+if ARGV[0] == "all"
+  reports.each do |report|
+    detector.send(report)
+  end
+  exit 0
+end
+
+ARGV.each do |name|
+  report = "report_#{name.gsub('-', '_')}"
+  detector.send(report)
+end

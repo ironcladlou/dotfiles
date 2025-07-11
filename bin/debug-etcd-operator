@@ -1,0 +1,72 @@
+#!/bin/bash
+set -euo pipefail
+
+function log {
+  local msg="$1"
+  echo -e "\033[32m$(date +'%Y-%m-%d %H:%M:%S') $msg \033[0;39m"
+}
+
+export KUBECONFIG=$(find $HOME/clusters -name kubeconfig | fzf)
+if [ ! -f "$KUBECONFIG" ]; then echo "couldn't find kubeconfig at '$KUBECONFIG'"; exit 1; fi
+log "Using KUBECONFIG $KUBECONFIG"
+
+OC=$(greadlink -f $(dirname $KUBECONFIG)/../bin/oc)
+if [ ! -f $OC ]; then echo "couldn't find an oc binary at '$OC'"; exit 1; fi
+log "Using oc binary $OC"
+
+CACHE_BUILD=true
+DEBUG=true
+while getopts ":br" opt; do
+  case ${opt} in
+    b )
+      CACHE_BUILD=false
+      ;;
+    r )
+      DEBUG=false
+      ;;
+    \? ) echo "Usage: cmd [-h] [-t]"
+      ;;
+  esac
+done
+
+trap 'jobs -p | xargs kill 2>/dev/null || true; exit 0' INT TERM EXIT
+
+if [ ! "$CACHE_BUILD" = true ]; then
+  log "Building operator linux binary"
+  GO_GCFLAGS='-gcflags=all="-N -l"' GOFLAGS=-mod=vendor GOOS=linux GOARCH=amd64 go build -o /tmp/etcd-operator-linux-amd64 ./cmd/cluster-etcd-operator
+fi
+
+log "Turning off CVO and etcd-operator"
+$OC scale --replicas 0 -n openshift-cluster-version deployments/cluster-version-operator >/dev/null || true
+$OC scale --replicas 0 -n openshift-etcd-operator deployments/etcd-operator >/dev/null || true
+$OC delete -n openshift-etcd-operator configmaps/openshift-cluster-etcd-operator-lock >/dev/null 2>/dev/null || true
+
+log "Waiting for debug container to be ready"
+($OC debug --namespace openshift-etcd-operator --container operator deployments/etcd-operator -- /usr/bin/sleep 1d 2>/dev/null) &
+while true; do
+  $OC wait --for=condition=Ready --namespace openshift-etcd-operator pod/etcd-operator-debug >/dev/null 2>/dev/null && break
+done
+
+log "Copying operator binary to operator container"
+$OC cp /tmp/etcd-operator-linux-amd64 openshift-etcd-operator/etcd-operator-debug:/usr/bin/cluster-etcd-operator-debug --container operator
+
+if "$DEBUG" = true; then
+  if [ ! -f "/tmp/dlv-linux" ]; then
+    log "Building delve"
+    docker run --name dlv golang:1.13.4 go get github.com/go-delve/delve/cmd/dlv
+    docker cp dlv:/go/bin/dlv /tmp/dlv-linux
+    docker rm dlv
+  fi
+
+  log "Forwarding debugger port"
+  ($OC port-forward --namespace openshift-etcd-operator pod/etcd-operator-debug 12500 >/dev/null) &
+
+  log "Copying delve to the operator container"
+  $OC cp /tmp/dlv-linux openshift-etcd-operator/etcd-operator-debug:/usr/bin/dlv --container operator
+  
+  log "Starting operator process via delve"
+  $OC exec --namespace openshift-etcd-operator etcd-operator-debug -c operator -- dlv --listen=:12500 --headless=true --api-version=2 --accept-multiclient exec /usr/bin/cluster-etcd-operator-debug -- operator --config=/var/run/configmaps/config/config.yaml -v=2 2>&1 | tee /tmp/etcd-operator.log
+else
+  log "Starting operator process"
+  $OC exec --namespace openshift-etcd-operator etcd-operator-debug -c operator -- /usr/bin/cluster-etcd-operator-debug operator --config=/var/run/configmaps/config/config.yaml -v=2 2>&1 | tee /tmp/etcd-operator.log
+fi

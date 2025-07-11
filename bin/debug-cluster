@@ -1,0 +1,97 @@
+#!/bin/bash
+set -euo pipefail
+
+daemonset_json=$(cat <<EOF
+{
+  "kind": "DaemonSet",
+  "apiVersion": "apps/v1",
+  "metadata": {
+    "name": "ditm",
+    "namespace": "default"
+  },
+  "spec": {
+    "selector": {
+      "matchLabels": {
+        "ironcladlou/ditm": ""
+      }
+    },
+    "template": {
+      "metadata": {
+        "labels": {
+          "ironcladlou/ditm": ""
+        }
+      },
+      "spec": {
+        "tolerations": [
+          {
+            "operator": "Exists"
+          }
+        ],
+        "volumes": [
+          {
+            "name": "host",
+            "hostPath": {
+              "path": "/",
+              "type": "Directory"
+            }
+          }
+        ],
+        "containers": [
+          {
+            "name": "ditm",
+            "image": "quay.io/dmace/ditm",
+            "command": [
+              "/bin/bash",
+              "-c",
+              "sleep infinity"
+            ],
+            "volumeMounts": [
+              {
+                "name": "host",
+                "mountPath": "/host"
+              }
+            ],
+            "securityContext": {
+              "privileged": true,
+              "runAsUser": 0
+            }
+          }
+        ],
+        "restartPolicy": "Always",
+        "hostNetwork": true,
+        "hostPID": true
+      }
+    }
+  }
+}
+EOF
+)
+
+function cleanup {
+  echo oc delete -n default daemonsets/ditm
+}
+
+oc apply -f - <<< "${daemonset_json}"
+trap cleanup EXIT
+
+while true; do
+  latest_json=$(oc get -n default daemonsets/ditm -o json)
+  remaining=$(jq '.status.numberUnavailable // 0' <<< "${latest_json}")
+  [[ "$remaining" -eq 0 ]] && break
+  echo "waiting for rollout, $remaining remaining"
+  sleep 2
+done
+
+for pod_name in $(oc get -n default pods -o json -l ironcladlou/ditm= | jq -r '.items[].metadata.name'); do
+  pod_node_name=$(oc get -n default "pods/$pod_name" -o jsonpath='{.spec.nodeName}')
+  session_name="$(sed 's/\./_/g' <<< ${pod_node_name})"
+  script=$(cat <<EOF
+    tmux set-option default-command 'KUBECONFIG=$KUBECONFIG oc rsh --shell /bin/bash -n default pods/$pod_name'
+    tmux set-option status-left-length 128
+    tmux set-option status-left '$pod_node_name ($pod_name)'
+    KUBECONFIG=$KUBECONFIG oc rsh --shell /bin/bash -n default pods/$pod_name
+EOF
+  )
+  tmux new-session -d -s "$session_name" /bin/bash -c "${script}"
+  tmux attach
+done

@@ -3,3 +3,6 @@
 .vscode
 .vagrant
 .envrc
+openshift-install
+.idea
+mise.toml

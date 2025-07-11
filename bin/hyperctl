@@ -1,0 +1,197 @@
+#!/usr/bin/env ruby
+
+require 'json'
+require 'yaml'
+require 'securerandom'
+require 'etc'
+require 'optparse'
+require 'fileutils'
+require 'tmpdir'
+
+
+$accounts = {
+  "openshift-dev" => {
+    :awscreds => "#{ENV['HOME']}/.aws/creds/openshift-dev.creds",
+    :base_domain => "devcluster.openshift.com",
+  },
+  "osd-hypershift" => {
+    :awscreds => "#{ENV['HOME']}/.aws/creds/osd-hypershift.creds",
+    :base_domain => "dmace.hypershift.devcluster.openshift.com",
+  }
+}
+
+def create(opts)
+  guest_account = $accounts[opts[:guest_account]]
+  raise "invalid guest account" unless guest_account
+
+  unless opts[:name]
+    opts[:name] = "#{ENV['USER']}-hyper-#{SecureRandom.uuid[0..3]}"
+    opts[:infra_id] = opts[:name]
+  end
+
+  args = [
+    "go", "run", ".", "create", "cluster", "aws",
+    "--namespace", opts[:namespace],
+    "--name", opts[:name],
+    "--base-domain", guest_account[:base_domain],
+    "--node-pool-replicas", opts[:node_count],
+    "--aws-creds", guest_account[:awscreds],
+    "--pull-secret", opts[:pull_secret],
+    "--ssh-key", opts[:ssh_key],
+    "--infra-id", opts[:infra_id],
+    "--control-plane-availability-policy", opts[:cp_availability],
+    "--release-image", opts[:release_image],
+  ]
+
+  if opts[:cpo_image]
+    args.push("--control-plane-operator-image", opts[:cpo_image])
+  end
+
+  if opts[:debug_deployments]
+    args.push("--annotations=hypershift.openshift.io/debug-deployments=#{opts[:debug_deployments]}")
+  end
+
+  if opts[:timeout]
+    args.push("--timeout=#{opts[:timeout]}")
+  end
+
+  if opts[:wait]
+    args.push("--wait")
+  end
+
+  command = args.join(" ")
+  STDERR.puts "executing: #{command}"
+  Dir.chdir("#{ENV['HOME']}/Projects/hypershift") do
+    system({"KUBECONFIG" => opts[:mgmt_kubeconfig]}, command, out: STDOUT)
+  end
+end
+
+def destroy(opts)
+  guest_account = $accounts[opts[:guest_account]]
+  
+  unless opts[:infra_id]
+    opts[:infra_id] = opts[:name]
+  end
+
+  args = [
+    "go", "run", ".", "destroy", "cluster", "aws",
+    "--namespace", opts[:namespace],
+    "--name", opts[:name],
+    "--aws-creds", guest_account[:awscreds],
+    "--base-domain", guest_account[:base_domain],
+    "--infra-id", opts[:infra_id],
+  ]
+
+  command = args.join(" ")
+  STDERR.puts "executing: #{command}"
+  Dir.chdir("#{ENV['HOME']}/Projects/hypershift") do
+    system({"KUBECONFIG" => opts[:mgmt_kubeconfig]}, command, out: STDOUT)
+  end
+end
+
+def destroy_infra(opts)
+  guest_account = $accounts[opts[:guest_account]]
+  
+  args = [
+    "go", "run", ".", "destroy", "infra", "aws",
+    "--aws-creds", guest_account[:awscreds],
+    "--base-domain", guest_account[:base_domain],
+    "--infra-id", "#{opts[:namespace]}-#{opts[:name]}",
+  ]
+
+  command = args.join(" ")
+  STDERR.puts "executing: #{command}"
+  Dir.chdir("#{ENV['HOME']}/Projects/hypershift") do
+    system({"KUBECONFIG" => opts[:mgmt_kubeconfig]}, command, out: STDOUT)
+  end
+end
+
+def install(opts)
+  guest_account = $accounts[opts[:guest_account]]
+
+  cmd = [
+    "go", "run", ".", "install",
+    "--oidc-storage-provider-s3-bucket-name=dmace-hypershift-openshift-dev",
+    "--oidc-storage-provider-s3-region=us-east-1",
+    "--oidc-storage-provider-s3-credentials=#{guest_account[:awscreds]}",
+    "--development",
+    "--enable-ocp-cluster-monitoring",
+    "--external-dns-provider=aws",
+    "--external-dns-credentials=#{guest_account[:awscreds]}",
+    "--external-dns-domain-filter=#{guest_account[:base_domain]}",
+  ]
+
+  Dir.chdir("#{ENV['HOME']}/Projects/hypershift") do
+    system({"KUBECONFIG" => opts[:mgmt_kubeconfig]}, cmd.join(" "), out: STDOUT)
+  end
+end
+
+opts = {
+  :namespace => "clusters",
+  :node_count => "2",
+  :ssh_key => "#{ENV['HOME']}/.hypershift/ssh-key",
+  :pull_secret => "#{ENV['HOME']}/.docker/hypershift.json",
+  :cp_availability => "SingleReplica",
+  :release_image => "quay.io/openshift-release-dev/ocp-release:4.10.0-rc.4-x86_64",
+}
+
+OptionParser.new do |parser|
+  parser.on('--guest-account=NAME') do |name|
+    opts[:guest_account] = name
+  end
+  parser.on('--mgmt-kubeconfig=NAME') do |kubeconfig|
+    opts[:mgmt_kubeconfig] = kubeconfig
+  end
+  parser.on('--ssh-key=PATH') do |path|
+    opts[:ssh_key] = path
+  end
+  parser.on('--pull-secret=PATH') do |path|
+    opts[:pull_secret] = path
+  end
+  parser.on('--nodes=COUNT') do |count|
+    opts[:node_count] = count
+  end
+  parser.on('--namespace=NAME') do |namespace|
+    opts[:namespace] = namespace
+  end
+  parser.on('--name=NAME') do |name|
+    opts[:name] = name
+  end
+  parser.on('--cpo-image=IMAGE') do |image|
+    opts[:cpo_image] = image
+  end
+  parser.on("--ha-control-plane") do
+    opts[:cp_availability] = "HighlyAvailable"
+  end
+  parser.on("--release-image=IMAGE") do |image|
+    opts[:release_image] = image
+  end
+  parser.on("--debug-deployments=NAMES") do |names|
+    opts[:debug_deployments] = names
+  end
+  parser.on("--timeout=TIMEOUT") do |timeout|
+    opts[:timeout] = timeout
+  end
+  parser.on("--wait") do
+    opts[:wait] = true
+  end
+end.parse!
+
+command = ARGV.pop.gsub("-","_").to_sym
+
+STDERR.puts opts
+
+case command
+when :create
+  create(opts)
+when :render
+  render(opts)
+when :destroy
+  destroy(opts)
+when :destroy_infra
+  destroy_infra(opts)
+when :install
+  install(opts)
+else
+  STDERR.puts "unrecognized command #{command}"
+end
